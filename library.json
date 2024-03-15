@@ -1,0 +1,20 @@
+{
+  "name": "SmartCC1101",
+  "description": "This driver library offers a simple access to data transfer using the cc1101 module. It gives access to many configuration options without need to use RFStudio.",
+  "keywords": "rf, radio, wireless, cc1101",
+  "authors":
+  {
+    "name": "Axel Grewe"
+  },
+  "repository":
+  {
+    "type": "git",
+    "url": "https://github.com/angrest/SmartCC1101"
+  },
+  "version": "0.1.0",
+  "frameworks": [
+        "arduino",
+        "SPI"
+  ],
+  "platforms": "*"
+}
