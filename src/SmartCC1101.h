@@ -4,14 +4,14 @@
 //  Copyright (c) 2024 Axel Grewe.
 //
 //  This library is designed to use CC1101/CC1100 module on the Arduino platform.
-//  The CC1101/CC1100 module is an useful wireleCS module.
+//  Some care was taken to reduce memory footprint to allow it to run on e.g. an Arduino nano pro
 //  Using the functions of the library, you can easily send and receive data by the CC1101/CC1100 module.
-//  Just have fun!
+//  
 //  For the details, please refer to the datasheet of CC1100/CC1101.
 //
 //  GDO based communication is not implemented.
 //----------------------------------------------------------------------------------------------------------------
-//  Loosely based on code from ELECHOUSE, LSatan and pkarsy
+//  Inspired by code from ELECHOUSE, LSatan and pkarsy
 //****************************************************************
 
 #ifndef SmartCC1101_SRC_DRV_h
@@ -47,6 +47,35 @@
 
 
 #include <Arduino.h>
+
+// DEFINE SPI PINS - CS pin should be user configurable
+#if defined __AVR_ATmega168__ || defined __AVR_ATmega328P__
+#define    SCK_PIN 13
+#define    CIPO_PIN 12
+#define    COPI_PIN 11
+#define    CS_PIN 10
+#elif defined __AVR_ATmega1280__ || defined __AVR_ATmega2560__
+#define    SCK_PIN 52
+#define    CIPO_PIN 50
+#define    COPI_PIN 51
+#define    CS_PIN 53
+#elif ESP8266
+#define    SCK_PIN 14
+#define    CIPO_PIN 12
+#define    COPI_PIN 13
+#define    CS_PIN 15
+#elif ESP32
+#define    SCK_PIN 18
+#define    CIPO_PIN 19
+#define    COPI_PIN 23
+#define    CS_PIN 5
+#else
+#define    SCK_PIN 13
+#define    CIPO_PIN 12
+#define    COPI_PIN 11
+#define    CS_PIN 10
+#endif
+
 
 //***************************************CC1101 define**************************************************//
 // CC1101 CONFIG REGSITER
@@ -217,12 +246,11 @@ public:
 	bw_650kHz = 0b00010000,
 	bw_812kHz = 0b00000000
   };
-  void setSPIPins(uint8_t sck, uint8_t cipo, uint8_t copi, uint8_t cs);
   void init(void);
   bool getCC1101(void);
   void sleep(void);
+  void onWakeup(void);
   void setDCFilterOff(bool dcf);
-  void setMHZ(float mhz);
   void setFrequency(uint32_t freq);
   void setClb(uint8_t b, uint8_t s, uint8_t e);
   void setRXBandWitdth(rx_BandWidth bw);
@@ -252,14 +280,13 @@ public:
   bool checkCRC(void);
   uint8_t getLQI(void);
   void setRX(void);
-  uint8_t getPacket(uint8_t *rxBuffer);
+  uint8_t receiveData(uint8_t *rxBuffer);
 
 #ifdef DEBUG_CC1101
   void dumpRegs(void);
 #endif
 
 private:
-  void setSPIDefaultPins(void);
   void waitCIPO(void);
   void chipSelect(void);
   void chipDeselect(void);
@@ -292,17 +319,10 @@ private:
   uint8_t frend0;
   int8_t pa = 12;
   bool sleepState = false;
-  bool customSPI = false;
-  bool ccmode = 0;
   float MHz = 886.35;
   bool crc;
   uint8_t lqi;
   int8_t rssi;
-
-  uint8_t SCK_PIN;
-  uint8_t CIPO_PIN;
-  uint8_t COPI_PIN;
-  uint8_t CS_PIN;
 
   uint8_t clb1[2] = { 0x18, 0x1C };
   uint8_t clb2[2] = { 0x1F, 0x26 };

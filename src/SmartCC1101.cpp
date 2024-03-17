@@ -4,14 +4,14 @@
 //  Copyright (c) 2024 Axel Grewe.
 //
 //  This library is designed to use CC1101/CC1100 module on the Arduino platform.
-//  The CC1101/CC1100 module is an useful wireleCS module.
+//  Some care was taken to reduce memory footprint to allow it to run on e.g. an Arduino nano pro
 //  Using the functions of the library, you can easily send and receive data by the CC1101/CC1100 module.
-//  Just have fun!
+//  
 //  For the details, please refer to the datasheet of CC1100/CC1101.
 //
 //  GDO based communication is not implemented.
 //----------------------------------------------------------------------------------------------------------------
-//  Loosely based on code from ELECHOUSE, LSatan and pkarsy
+//  Inspired by code from ELECHOUSE, LSatan and pkarsy
 //****************************************************************
 
 
@@ -24,67 +24,10 @@ uint8_t const PROGMEM PA_TABLE_433[8]{ 0x12, 0x0E, 0x1D, 0x34, 0x60, 0x84, 0xC8,
 uint8_t const PROGMEM PA_TABLE_868[10]{ 0x03, 0x17, 0x1D, 0x26, 0x37, 0x50, 0x86, 0xCD, 0xC5, 0xC0 };
 uint8_t const PROGMEM PA_TABLE_915[10]{ 0x03, 0x0E, 0x1E, 0x27, 0x38, 0x8E, 0x84, 0xCC, 0xC3, 0xC0 };
 
-//uint8_t PA_TABLE_315[8]{ 0x12, 0x0D, 0x1C, 0x34, 0x51, 0x85, 0xCB, 0xC2 };
-//uint8_t PA_TABLE_433[8]{ 0x12, 0x0E, 0x1D, 0x34, 0x60, 0x84, 0xC8, 0xC0 };
-//uint8_t PA_TABLE_868[10]{ 0x03, 0x17, 0x1D, 0x26, 0x37, 0x50, 0x86, 0xCD, 0xC5, 0xC0 };
-//uint8_t PA_TABLE_915[10]{ 0x03, 0x0E, 0x1E, 0x27, 0x38, 0x8E, 0x84, 0xCC, 0xC3, 0xC0 };
-
 
 //
 // SPI helper functions
 //
-
-//****************************************************************
-// Funtion Name: setSPIDefaultPins
-// Funtion     : Set Spi pins
-// Input       : none
-// Output      : none
-//****************************************************************
-
-void SmartCC1101::setSPIDefaultPins(void) {
-  if (customSPI == false) {
-#if defined __AVR_ATmega168__ || defined __AVR_ATmega328P__
-    SCK_PIN = 13;
-    CIPO_PIN = 12;
-    COPI_PIN = 11;
-    CS_PIN = 10;
-#elif defined __AVR_ATmega1280__ || defined __AVR_ATmega2560__
-    SCK_PIN = 52;
-    CIPO_PIN = 50;
-    COPI_PIN = 51;
-    CS_PIN = 53;
-#elif ESP8266
-    SCK_PIN = 14;
-    CIPO_PIN = 12;
-    COPI_PIN = 13;
-    CS_PIN = 15;
-#elif ESP32
-    SCK_PIN = 18;
-    CIPO_PIN = 19;
-    COPI_PIN = 23;
-    CS_PIN = 5;
-#else
-    SCK_PIN = 13;
-    CIPO_PIN = 12;
-    COPI_PIN = 11;
-    CS_PIN = 10;
-#endif
-  }
-}
-
-//****************************************************************
-// Funtion Name: setSPIPins
-// Funtion     : set custom spi pins.
-// Input       : none
-// Output      : none
-//****************************************************************
-void SmartCC1101::setSPIPins(uint8_t sck, uint8_t miso, uint8_t mosi, uint8_t ss) {
-  customSPI = true;
-  SCK_PIN = sck;
-  CIPO_PIN = miso;
-  COPI_PIN = mosi;
-  CS_PIN = ss;
-}
 
 //****************************************************************
 // Funtion Name: waitCIPO
@@ -254,8 +197,6 @@ void SmartCC1101::init(void) {
 #warn SPI Transactions are not supported on this board
 #endif
 
-  setSPIDefaultPins();  // initialize the SPI pins
-
   pinMode(SCK_PIN, OUTPUT);
   digitalWrite(SCK_PIN, HIGH);
 
@@ -373,26 +314,6 @@ void SmartCC1101::configCC1101(void) {
   writeRegister(CC1101_MDMCFG1, 0b00000010);   // 2 Preamble bytes, exponent 2 in channel spacing
   writeRegister(CC1101_MCSM0, 0b00111000);     // Autocal every 4th time when going from RX/TX to IDLE, PO_TIMEOUT=2
 
-  /*
-  writeRegister(CC1101_PKTCTRL0, 0b01000101); // Default value: WHITE_DATA, CRC_EN, LENGTH_CONFIG 01 (variable)
-  writeRegister(CC1101_CHANNR,   0x00); 	  // Default Value
-  writeRegister(CC1101_ADDR,     0x00);   	  // Default Value
-  writeRegister(CC1101_MDMCFG0,  0xF8); 	  // Default value 199,951 kHz channel spacing
-  writeRegister(CC1101_DEVIATN,  0b01000111); // Default value
-
-  writeRegister(CC1101_FOCCFG,   0b00010110); // FOC_BS_CS_GATE=0, FOC_PRE_K=10, FOC_POST_K=1, FOC_LIMIT=10
-  writeRegister(CC1101_BSCFG,    0b01101101); // Default+ BS_LIMIT=01
-  writeRegister(CC1101_AGCCTRL2, 0b00000011); // Default
-  writeRegister(CC1101_AGCCTRL1, 0b01000000); // Default
-  writeRegister(CC1101_AGCCTRL0, 0b10010001); // Default
-  writeRegister(CC1101_FREND1, 0x56); // Default
-  writeRegister(CC1101_FSCAL3, 0b10101001); // Default
-  writeRegister(CC1101_FSCAL2, 0b00001010); // Default
-  writeRegister(CC1101_FSCAL1, 0b00100000); // Default
-  writeRegister(CC1101_FSCAL0, 0b11010000); // Default
-
- */
-
   // Optized for sensitivty @835.35 Mhz, 100kb symbol rate
   writeRegister(CC1101_FSCTRL1, 0x08);  //Frequency Synthesizer Control
   writeRegister(CC1101_FSCTRL0, 0x00);  //Frequency Synthesizer Control
@@ -409,12 +330,33 @@ void SmartCC1101::configCC1101(void) {
   writeRegister(CC1101_FSCAL2, 0x2A);    //Frequency Synthesizer Calibration
   writeRegister(CC1101_FSCAL1, 0x00);    //Frequency Synthesizer Calibration
   writeRegister(CC1101_FSCAL0, 0x1F);    //Frequency Synthesizer Calibration
-  writeRegister(CC1101_AGCTEST, 0x3F);   //AGC Test
   writeRegister(CC1101_TEST0, 0x09);     //Various Test Settings
 
+  // the easiest way to have settings managed cosnsistently and onyly change in one place
+  onWakeup();
 
   setFrequency(MHz * 1e6);
 }
+
+
+//****************************************************************
+// Funtion Name: onWakeup
+// Funtion     : those registers are reset on sleep
+// Input       : none
+// Output      : none
+//****************************************************************
+void SmartCC1101::onWakeup(void) {
+
+  SDEBUGln("Wakeup from sleep");
+  sleepState=false;
+  writeRegister(CC1101_AGCTEST, 0x3F);   //AGC Test
+  writeRegister(CC1101_TEST0, 0x09);     //Various Test Settings
+  // index 0 is preserved in PATABLE, ASK/OOK use index 1
+  if (modulation == mod_ASKOOK)
+    setPA(pa);
+
+}
+
 
 //****************************************************************
 // Funtion Name: getCC1101
@@ -423,8 +365,6 @@ void SmartCC1101::configCC1101(void) {
 // Output      : none
 //****************************************************************
 bool SmartCC1101::getCC1101(void) {
-
-  setSPIDefaultPins();
 
   uint8_t version = readStatusRegister(CC1101_VERSION);
   // all chips at hand return 4, but this is bound to change
@@ -524,7 +464,6 @@ void SmartCC1101::setPA(int8_t p) {
       index=7;
     }
     a = pgm_read_byte(&PA_TABLE_315[index]);
-//    a = PA_TABLE_315[index];
   } else if (MHz >= 378 && MHz <= 464) {
     if (pa <= -30) {
 	    index=0;
@@ -544,7 +483,6 @@ void SmartCC1101::setPA(int8_t p) {
 	    index=7;
     }
     a = pgm_read_byte(&PA_TABLE_433[index]);
-//    a = PA_TABLE_433[index];
   } else if (MHz >= 779 && MHz <= 899.99) {
     if (pa <= -30) {
 	    index=0;
@@ -568,7 +506,6 @@ void SmartCC1101::setPA(int8_t p) {
  	    index=9;
     }
     a = pgm_read_byte(&PA_TABLE_868[index]);
-//    a = PA_TABLE_868[index];
   } else if (MHz >= 900 && MHz <= 928) {
     if (pa <= -30) {
 	    index=0;
@@ -592,7 +529,6 @@ void SmartCC1101::setPA(int8_t p) {
 	    index=9;
     }
     a = pgm_read_byte(&PA_TABLE_915[index]);
-//    a = PA_TABLE_915[index];
   }
   
   if (modulation == mod_ASKOOK) {
@@ -603,42 +539,6 @@ void SmartCC1101::setPA(int8_t p) {
   }
   writeBurstRegister(CC1101_PATABLE, PA_TABLE, 8);
 }
-
-// FIXME: delete before publishing, must be consistent in both senders and receivers 
-void SmartCC1101::calibrate(void) {
-
-  bool lh = false;
-
-  if (MHz >= 300 && MHz <= 348) {
-    writeRegister(CC1101_FSCTRL0, map(MHz, 300, 348, clb1[0], clb1[1]));
-    if (MHz < 322.88)
-      lh = true;
-  } else if (MHz >= 378 && MHz <= 464) {
-    writeRegister(CC1101_FSCTRL0, map(MHz, 378, 464, clb2[0], clb2[1]));
-    if (MHz < 430.5)
-      lh = true;
-  } else if (MHz >= 779 && MHz <= 899.99) {
-    writeRegister(CC1101_FSCTRL0, map(MHz, 779, 899, clb3[0], clb3[1]));
-//    writeRegister(CC1101_FSCTRL0, 0x45);
-    if (MHz < 861)
-      lh = true;
-  } else if (MHz >= 900 && MHz <= 928) {
-    writeRegister(CC1101_FSCTRL0, map(MHz, 900, 928, clb4[0], clb4[1]));
-  }
-
-  uint8_t fscal2 = readStatusRegister(CC1101_FSCAL2);
-
-  if (lh) {
-    writeRegister(CC1101_TEST0, 0x0B);
-    writeRegister(CC1101_FSCAL2, fscal2 & 0b1101111);  // VCO_CORE_H_EN = off
-  } else {
-    writeRegister(CC1101_TEST0, 0x09);
-    writeRegister(CC1101_FSCAL2, fscal2 | 0b0010000);  // VCO_CORE_H_EN = on
-  }
-
-  setPA(pa);
-}
-
 
 //****************************************************************
 // Funtion Name: setFrequency
@@ -663,8 +563,6 @@ void SmartCC1101::setFrequency(const uint32_t freq) {
   writeRegister(CC1101_FREQ2, FREQ2);
   writeRegister(CC1101_FREQ1, FREQ1);
   writeRegister(CC1101_FREQ0, FREQ0);
-  
-  // calibrate();
 
 }
 
@@ -1007,7 +905,7 @@ void SmartCC1101::setDeviation(float d) {
 }
 
 //****************************************************************
-// Funtion Name: Char direct SendData
+// Funtion Name: sendData 
 // Funtion     : use CC1101 send data
 // Input       : txBuffer: zero-terminated character array to send, no more than 61
 // Output      : none
@@ -1025,7 +923,10 @@ void SmartCC1101::sendData(char *txBuffer) {
 void SmartCC1101::sendData(uint8_t *txBuffer, uint8_t size) {
 
   uint8_t state;
-  
+ 
+  if(sleepState)
+    onWakeup();
+ 
   SDEBUGln("Got %d bytes to write: %s", size, txBuffer);
 
   // limit to 61 characters
@@ -1055,6 +956,8 @@ void SmartCC1101::sendData(uint8_t *txBuffer, uint8_t size) {
     state = getState();
     SDEBUGln("State = %d", state);
     if (state == state_IDLE) break;  // we wait for IDLE state
+    delayMicroseconds(2000);
+
   }
   
   strobe(CC1101_SFTX);  //flush TXfifo
@@ -1068,6 +971,14 @@ void SmartCC1101::sendData(uint8_t *txBuffer, uint8_t size) {
 //****************************************************************
 void SmartCC1101::setRX(void) {
 
+  if(sleepState)
+    onWakeup();
+
+  // reset values from last receive
+  rssi = 0;
+  lqi = 0;
+  crc = false;
+
   uint8_t state = getState();
 
   // wait until calibration or settling finishes
@@ -1079,11 +990,6 @@ void SmartCC1101::setRX(void) {
   if ((state == state_RX) || (state == state_RXFIFO_OVERFLOW))
     return;
 
-  // reset values from last receive
-  rssi = 0;
-  lqi = 0;
-  crc = false;
-
   // Handle TX buffer underflow here directly
   if (state == state_TXFIFO_UNDERFLOW)
     strobe(CC1101_SFTX);
@@ -1094,7 +1000,7 @@ void SmartCC1101::setRX(void) {
     setIDLEstate();
   }
 
-  SDEBUGln("Before autcal: FSCAL1 = %0x", readRegister(CC1101_FSCAL1));
+  SDEBUGln("Before autocal: FSCAL1 = %0x", readRegister(CC1101_FSCAL1));
 
   strobe(CC1101_SRX);  //start receive (autcal on IDLE->RX
 
@@ -1130,7 +1036,7 @@ int8_t SmartCC1101::getRSSI(void) {
 //****************************************************************
 int8_t SmartCC1101::getRSSI(uint8_t rawValue) {
 
-  int rssi = rawValue;
+  int16_t rssi = rawValue;
 
   if (rssi >= 128) {
     rssi = (rssi - 256) / 2 - 74;
@@ -1192,13 +1098,16 @@ uint8_t SmartCC1101::getLQI(uint8_t rawValue) {
 }
 
 //****************************************************************
-// Funtion Name: getPacket
+// Funtion Name: receiveData
 // Funtion     : read data received from RXfifo
 // Input       : rxBuffer: buffer to store data
 // Output      : size of data received (0 if still RX'ing, inconsisntent state or CRC error and CRC_AF=true)
 //****************************************************************
 
-uint8_t SmartCC1101::getPacket(uint8_t *rxBuffer) {
+uint8_t SmartCC1101::receiveData(uint8_t *rxBuffer) {
+	
+  if(sleepState)
+    onWakeup();
 
   uint8_t size = 0;
   uint8_t state = getState();
