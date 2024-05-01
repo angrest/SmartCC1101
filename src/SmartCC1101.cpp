@@ -37,7 +37,6 @@ uint8_t const PROGMEM PA_TABLE_915[10]{ 0x03, 0x0E, 0x1E, 0x27, 0x38, 0x8E, 0x84
 void SmartCC1101::setDelayFunction(delayfunction delayF) {
 
   delayFunc = delayF;
-
 }
 
 /**
@@ -46,7 +45,7 @@ void SmartCC1101::setDelayFunction(delayfunction delayF) {
 * @return none
 */
 void SmartCC1101::smartDelay(uint8_t ms) {
-  if(delayFunc)
+  if (delayFunc)
     delayFunc(ms);
   else
     delay(ms);
@@ -64,7 +63,7 @@ void SmartCC1101::smartDelay(uint8_t ms) {
 void SmartCC1101::waitCIPO(void) {
 
   while (digitalRead(CIPO_PIN) > 0) {
-	SDEBUGln("CIPO high");  
+
   }
 }
 
@@ -152,12 +151,6 @@ uint8_t SmartCC1101::readStatusRegister(uint8_t addr) {
 */
 void SmartCC1101::writeRegister(uint8_t addr, uint8_t value, [[maybe_unused]] const char *str) {
 
-#ifdef DEBUG_CC1101
-  if (addr == 0) {
-    SDEBUGln("Ouch: asked to write register address 0 from function %s", str);
-  }
-#endif
-
   chipSelect();
   waitCIPO();
   SPI.transfer(addr);
@@ -173,12 +166,6 @@ void SmartCC1101::writeRegister(uint8_t addr, uint8_t value, [[maybe_unused]] co
 * @return none
 */
 void SmartCC1101::writeBurstRegister(uint8_t addr, const uint8_t *buffer, const uint8_t num, [[maybe_unused]] const char *str) {
-
-#ifdef DEBUG_CC1101
-  if (addr == 0) {
-    SDEBUGln("Ouch: asked to write register address 0 from function %s", str);
-  }
-#endif
 
   chipSelect();
   waitCIPO();
@@ -238,7 +225,7 @@ void SmartCC1101::init(void) {
   SPI.begin();
 #endif
 
-  reset(); //reset first before going further
+  reset();  //reset first before going further
 
   configCC1101();  //CC1101 default configuration
 }
@@ -273,10 +260,9 @@ void SmartCC1101::setIDLEState(void) {
     return;
   strobe(CC1101_SIDLE);
   while (getState() != state_IDLE) {
-	SDEBUGln("Waiting for IDLE");
   }
-  
-    ;  // wait until state is IDLE
+
+  ;  // wait until state is IDLE
 }
 
 /**
@@ -286,7 +272,7 @@ void SmartCC1101::setIDLEState(void) {
 */
 void SmartCC1101::sleep(void) {
 
-  sleepState=true;
+  sleepState = true;
   setIDLEState();       // Exit RX / TX, turn off frequency synthesizer and exit
   strobe(CC1101_SPWD);  // Enter power down mode when CSn goes high.
 }
@@ -313,7 +299,6 @@ SmartCC1101::chipState SmartCC1101::getState(void) {
     uint8_t state = strobe(CC1101_SNOP);
     if (state == old_state)
       break;
-	SDEBUGln("State readout mismatch, try again");
     old_state = state;
   }
   chipState rc = static_cast<chipState>((old_state >> 4) & 0b00111);
@@ -368,14 +353,12 @@ void SmartCC1101::configCC1101(void) {
 */
 void SmartCC1101::onWakeup(void) {
 
-  SDEBUGln("Wakeup from sleep");
-  sleepState=false;
-  writeRegister(CC1101_AGCTEST, 0x3F);   //AGC Test
-  writeRegister(CC1101_TEST0, 0x09);     //Various Test Settings
+  sleepState = false;
+  writeRegister(CC1101_AGCTEST, 0x3F);  //AGC Test
+  writeRegister(CC1101_TEST0, 0x09);    //Various Test Settings
   // index 0 is preserved in PATABLE, ASK/OOK use index 1
   if (modulation == mod_ASKOOK)
     setPA(pa);
-
 }
 
 
@@ -387,7 +370,7 @@ void SmartCC1101::onWakeup(void) {
 bool SmartCC1101::getCC1101(void) {
 
   uint8_t version = readStatusRegister(CC1101_VERSION);
-/**
+  /**
 * @note All chips at hand return 4, but this is bound to change
 * so, we accept all values which are nonzero and not 0xFF,
 * the latter is returned when the connection is broken (e.g. chip not connected).
@@ -461,99 +444,98 @@ void SmartCC1101::setPA(int8_t p) {
   uint8_t PA_TABLE[8]{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
   int8_t a = 0;
-  uint8_t index=0;
+  uint8_t index = 0;
   pa = p;
 
   if (cfreq >= 300000000 && cfreq <= 348000000) {
     if (pa <= -30) {
-	    index=0;
+      index = 0;
     } else if (pa > -30 && pa <= -20) {
-		index=1;
+      index = 1;
     } else if (pa > -20 && pa <= -15) {
-		index=2;
+      index = 2;
     } else if (pa > -15 && pa <= -10) {
-      index=3;
+      index = 3;
     } else if (pa > -10 && pa <= 0) {
-      index=4;
+      index = 4;
     } else if (pa > 0 && pa <= 5) {
-      index=5;
+      index = 5;
     } else if (pa > 5 && pa <= 7) {
-      index=6;
+      index = 6;
     } else if (pa > 7) {
-      index=7;
+      index = 7;
     }
     a = pgm_read_byte(&PA_TABLE_315[index]);
   } else if (cfreq >= 378000000 && cfreq <= 464000000) {
     if (pa <= -30) {
-	    index=0;
+      index = 0;
     } else if (pa > -30 && pa <= -20) {
-	    index=1;
+      index = 1;
     } else if (pa > -20 && pa <= -15) {
-	    index=2;
+      index = 2;
     } else if (pa > -15 && pa <= -10) {
-	    index=3;
+      index = 3;
     } else if (pa > -10 && pa <= 0) {
-	    index=4;
+      index = 4;
     } else if (pa > 0 && pa <= 5) {
-	    index=5;
+      index = 5;
     } else if (pa > 5 && pa <= 7) {
-	    index=6;
+      index = 6;
     } else if (pa > 7) {
-	    index=7;
+      index = 7;
     }
     a = pgm_read_byte(&PA_TABLE_433[index]);
   } else if (cfreq >= 779000000 && cfreq < 900000000) {
     if (pa <= -30) {
-	    index=0;
+      index = 0;
     } else if (pa > -30 && pa <= -20) {
-	    index=1;
+      index = 1;
     } else if (pa > -20 && pa <= -15) {
-	    index=2;
+      index = 2;
     } else if (pa > -15 && pa <= -10) {
-	    index=3;
+      index = 3;
     } else if (pa > -10 && pa <= -6) {
-	    index=4;
+      index = 4;
     } else if (pa > -6 && pa <= 0) {
-	    index=5;
+      index = 5;
     } else if (pa > 0 && pa <= 5) {
-	    index=6;
+      index = 6;
     } else if (pa > 5 && pa <= 7) {
-	    index=7;
+      index = 7;
     } else if (pa > 7 && pa <= 10) {
-	    index=8;
+      index = 8;
     } else if (pa > 10) {
- 	    index=9;
+      index = 9;
     }
     a = pgm_read_byte(&PA_TABLE_868[index]);
   } else if (cfreq >= 900000000 && cfreq <= 928000000) {
     if (pa <= -30) {
-	    index=0;
+      index = 0;
     } else if (pa > -30 && pa <= -20) {
-	    index=1;
+      index = 1;
     } else if (pa > -20 && pa <= -15) {
-	    index=2;
+      index = 2;
     } else if (pa > -15 && pa <= -10) {
-	    index=3;
+      index = 3;
     } else if (pa > -10 && pa <= -6) {
-	    index=4;
+      index = 4;
     } else if (pa > -6 && pa <= 0) {
-	    index=5;
+      index = 5;
     } else if (pa > 0 && pa <= 5) {
-	    index=6;
+      index = 6;
     } else if (pa > 5 && pa <= 7) {
-	    index=7;
+      index = 7;
     } else if (pa > 7 && pa <= 10) {
-	    index=8;
+      index = 8;
     } else if (pa > 10) {
-	    index=9;
+      index = 9;
     }
     a = pgm_read_byte(&PA_TABLE_915[index]);
   }
-  
+
   if (modulation == mod_ASKOOK) {
     PA_TABLE[1] = a;  // PA power for sending a '1'
   } else {
-	SDEBUGln("PA = %0x",a);
     PA_TABLE[0] = a;  // PA Power
   }
   writeBurstRegister(CC1101_PATABLE, PA_TABLE, 8);
@@ -569,9 +551,9 @@ void SmartCC1101::setCarrierFrequency(uint32_t frequency) {
   uint32_t frequencyRegisterValue = ((uint64_t)frequency << 16) / CC1101_CRYSTAL_FREQUENCY;
 
   // Extract the individual bytes for the frequency registers
-  uint8_t frequencyHigh = (frequencyRegisterValue >> 16) & 0xFF; // High byte (FREQ2)
-  uint8_t frequencyMid = (frequencyRegisterValue >> 8) & 0xFF;   // Middle byte (FREQ1)
-  uint8_t frequencyLow = frequencyRegisterValue & 0xFF;          // Low byte (FREQ0)
+  uint8_t frequencyHigh = (frequencyRegisterValue >> 16) & 0xFF;  // High byte (FREQ2)
+  uint8_t frequencyMid = (frequencyRegisterValue >> 8) & 0xFF;    // Middle byte (FREQ1)
+  uint8_t frequencyLow = frequencyRegisterValue & 0xFF;           // Low byte (FREQ0)
 
   // Set the transceiver to IDLE state before writing the frequency registers
   setIDLEState();
@@ -579,7 +561,7 @@ void SmartCC1101::setCarrierFrequency(uint32_t frequency) {
   writeRegister(CC1101_FREQ2, frequencyHigh);
   writeRegister(CC1101_FREQ1, frequencyMid);
   writeRegister(CC1101_FREQ0, frequencyLow);
-  
+
   cfreq = frequency;
 }
 
@@ -605,9 +587,7 @@ void SmartCC1101::setModulation(Modulation mod) {
   modulation = mod;
 
   uint8_t state = readRegister(CC1101_MDMCFG2);
-  SDEBUGln("CC1101_MDMCFG2 before %0x",state);
   state &= 0b10001111;
-  SDEBUGln("CC1101_MDMCFG2 after %0x",state| mod);
 
   writeRegister(CC1101_MDMCFG2, state | mod);
   writeRegister(CC1101_FREND0, frend0);
@@ -640,7 +620,7 @@ void SmartCC1101::setPktFormat(PacketFormat pktf) {
 * Controls address check configuration of received packages
 * @param Address Check configtuation
 * Possible values:
-* adc_NO			No address check
+* adc_NO			  No address check
 * adc_YESNOBC		Address check, no broadcast
 * adc_YES0BC		Address check and 0 (0x00) broadcast
 * adc_YES0FFBC	Address check and 0 (0x00) and 255 (0xFF) broadcast
@@ -683,7 +663,7 @@ void SmartCC1101::setCRCCheck(bool crc) {
 /**
 * Enable automatic flush of RX FIFO when CRC is not OK
 * (requires CRC checking enabled by calling setCRCCheck(true) first
-* @param Boolean flag to enabel autoflush
+* @param Boolean flag to enable autoflush
 * @return none
 */
 void SmartCC1101::setCRC_AF(bool af) {
@@ -739,7 +719,7 @@ void SmartCC1101::setLengthConfig(PacketLengthConfig lenc) {
 * @return none
 */
 void SmartCC1101::setPacketLength(uint8_t pktlen) {
-/**
+  /**
 * @note although 255 bytes are theoretically possible, the code here is limited
 * to using a single RXBUFFER/TXBUFFER with the length of 64 bytes, reuslting in net 61 bytes of payload
 */
@@ -776,9 +756,7 @@ void SmartCC1101::setSyncWord(uint8_t sh, uint8_t sl) {
 void SmartCC1101::setSyncMode(sync_Mode syncm) {
 
   uint8_t state = readRegister(CC1101_MDMCFG2);
-  SDEBUGln("CC1101_MDMCFG2 before %0x",state);
   state &= 0b11111000;
-  SDEBUGln("CC1101_MDMCFG2 after %0x",state | syncm);
 
   writeRegister(CC1101_MDMCFG2, state | syncm);
 }
@@ -816,7 +794,7 @@ void SmartCC1101::setPQT(uint8_t pqt) {
   uint8_t state = readRegister(CC1101_PKTCTRL1);
   state &= 0b00011111;
 
-  pqt <<= 5; // this takes care we do not use alues exceeding range
+  pqt <<= 5;  // this takes care we do not use alues exceeding range
 
   writeRegister(CC1101_PKTCTRL1, state | pqt);
 }
@@ -862,31 +840,30 @@ void SmartCC1101::setWhiteData(bool white) {
 */
 void SmartCC1101::setSymbolRate(double symbolRate) {
 
-  symbolRate = constrain(symbolRate, CC1101_CRYSTAL_FREQUENCY*1./pow(2,28), CC1101_CRYSTAL_FREQUENCY*511./pow(2,13));
+  symbolRate = constrain(symbolRate, CC1101_CRYSTAL_FREQUENCY * 1. / pow(2, 28), CC1101_CRYSTAL_FREQUENCY * 511. / pow(2, 13));
   double symR = symbolRate;
 
   uint8_t drate_e = 0;
-  
-  // Find the exponent (drate_e)
-  const double minf = 511.*CC1101_CRYSTAL_FREQUENCY/pow(2,28); // drate_m is 255 max
 
-  while (symR > minf) { 
-    drate_e++;         // Increment exponent
-    symR /=2. ;        // Divide factor by 2
+  // Find the exponent (drate_e)
+  const double minf = 511. * CC1101_CRYSTAL_FREQUENCY / pow(2, 28);  // drate_m is 255 max
+
+  while (symR > minf) {
+    drate_e++;   // Increment exponent
+    symR /= 2.;  // Divide factor by 2
   }
 
   // ... and calculate the mantissa value
-  double drate_mf = symbolRate*pow(2,28-drate_e)/CC1101_CRYSTAL_FREQUENCY;
-  uint8_t drate_m = (drate_mf+.5) - 256;
+  double drate_mf = symbolRate * pow(2, 28 - drate_e) / CC1101_CRYSTAL_FREQUENCY;
+  uint8_t drate_m = (drate_mf + .5) - 256;
 
-  setIDLEState(); // Ensure CC1101 is in IDLE state before configuring
+  setIDLEState();  // Ensure CC1101 is in IDLE state before configuring
   // Read the current value of MDMCFG4 and mask out DRATE bits
   uint8_t currentMdmCfg4 = readRegister(CC1101_MDMCFG4) & 0b11110000;
 
   // Write the exponent and mantissa to the CC1101 registers
   writeRegister(CC1101_MDMCFG4, currentMdmCfg4 | drate_e);
   writeRegister(CC1101_MDMCFG3, drate_m);
-
 }
 
 /**
@@ -902,22 +879,20 @@ void SmartCC1101::setDeviation(uint32_t deviation) {
   // Constrain the deviation value within the acceptable range
   deviation = constrain(deviation, CC1101_CRYSTAL_FREQUENCY >> 14, (CC1101_CRYSTAL_FREQUENCY >> 10) * 15);
   uint32_t devtn = deviation;
-  
+
   uint8_t deviation_e = 0;
-  
+
   // Find the exponent (deviation_e)
-  while (devtn >= (CC1101_CRYSTAL_FREQUENCY >> 13)) { // Mantissa is 15 max
-    deviation_e++;      // Increment exponent
-    devtn >>= 1;        // Divide factor by 2
+  while (devtn >= (CC1101_CRYSTAL_FREQUENCY >> 13)) {  // Mantissa is 15 max
+    deviation_e++;                                     // Increment exponent
+    devtn >>= 1;                                       // Divide factor by 2
   }
-  
+
   // ... and calculate the mantissa value. Rounding errors might lead to a one-off result on the exact interval limit.
-  int32_t deviation_m = (deviation << (17-deviation_e)) / CC1101_CRYSTAL_FREQUENCY - 8;
-  
-  SDEBUGln("deviation=%lu, deviation_m=%d, devation_e=%u",deviation,deviation_m,deviation_e);
-  
-  // bad things could happen due to rounding issues, just to be sure 
-  deviation_m = constrain(deviation_m,0,7);
+  int32_t deviation_m = (deviation << (17 - deviation_e)) / CC1101_CRYSTAL_FREQUENCY - 8;
+
+  // bad things could happen due to rounding issues, just to be sure
+  deviation_m = constrain(deviation_m, 0, 7);
 
   // Write the calculated values to the CC1101_DEVIATN register
   writeRegister(CC1101_DEVIATN, (deviation_e << 4) | deviation_m);
@@ -942,11 +917,9 @@ void SmartCC1101::sendData(const char *txBuffer) {
 void SmartCC1101::sendData(const uint8_t *txBuffer, uint8_t size) {
 
   uint8_t state;
- 
-  if(sleepState)
+
+  if (sleepState)
     onWakeup();
- 
-  SDEBUGln("Got %d bytes to write: %s", size, txBuffer);
 
   // limit to 61 characters
   size = (size <= 61) ? size : 61;
@@ -954,30 +927,25 @@ void SmartCC1101::sendData(const uint8_t *txBuffer, uint8_t size) {
   setIDLEState();
 
   writeRegister(CC1101_TXFIFO, size);
-  
+
   writeBurstRegister(CC1101_TXFIFO, txBuffer, size);  //write data to send
   strobe(CC1101_STX);                                 //start send
 
   // Source Datasheet p 58, ch 22.1
   state = getState();
 
-  SDEBUGln("State = %d",state);
   while ((state == state_CALIBRATE) || (state == state_SETTLING)) {
-    SDEBUGln("Calibrating");
     state = getState();
   }
 
-
+  // Wait for CC1101 going to idle state
   while (1) {
     state = getState();
-    SDEBUGln("State = %d", state);
-    if (state == state_IDLE) break;  // we wait for IDLE state
-    
-    smartDelay(2);
+    if (state == state_IDLE) break;
 
+    smartDelay(2);
   }
-  SDEBUGln("Send took %ld ms", millis()-startTime);
-  
+
   strobe(CC1101_SFTX);  //flush TXfifo
 }
 
@@ -988,7 +956,7 @@ void SmartCC1101::sendData(const uint8_t *txBuffer, uint8_t size) {
 */
 void SmartCC1101::setRX(void) {
 
-  if(sleepState)
+  if (sleepState)
     onWakeup();
 
   // reset values from last receive
@@ -1013,23 +981,16 @@ void SmartCC1101::setRX(void) {
 
   //N all other states are unexpected, force to IDLE first
   if (state != 0) {
-    SDEBUGln("Unexpected state %0x", state);
     setIDLEState();
   }
-
-  SDEBUGln("Before autocal: FSCAL1 = %0x", readRegister(CC1101_FSCAL1));
 
   strobe(CC1101_SRX);  //start receive (autcal on IDLE->RX
 
   // Check - Source Datasheet p 58, ch 22.1
   state = getState();
   while ((state == state_CALIBRATE) || (state == state_SETTLING)) {
-    SDEBUGln("Calibrating");
     state = getState();
   }
-  uint8_t lock = readRegister(CC1101_FSCAL1);
-  if (lock != 0x3f)
-    SDEBUGln("Calibration locked FSCAL1 = %0x", readRegister(CC1101_FSCAL1));
 }
 
 /**
@@ -1125,8 +1086,8 @@ uint8_t SmartCC1101::getLQI(uint8_t rawValue) {
 */
 
 uint8_t SmartCC1101::receiveData(uint8_t *rxBuffer) {
-	
-  if(sleepState)
+
+  if (sleepState)
     onWakeup();
 
   uint8_t size = 0;
@@ -1135,8 +1096,6 @@ uint8_t SmartCC1101::receiveData(uint8_t *rxBuffer) {
     return 0;
   }
 
-  if (state == state_RXFIFO_OVERFLOW)
-    SDEBUGln("RX FIFO overflow");
   // This is the total number of bytes in buffer including length byte plus RSSI and LQI
   uint8_t rxbytes = readStatusRegister(CC1101_RXBYTES) & BYTES_IN_RXFIFO;
 
@@ -1155,13 +1114,7 @@ uint8_t SmartCC1101::receiveData(uint8_t *rxBuffer) {
         crc = checkCRC(status[1]);
       }
       uint8_t rem = rxbytes - (size + 3);
-      if ((rem > 0) && (state != state_RXFIFO_OVERFLOW)) {
-        SDEBUGln("FIFO STILL HAS %d BYTES", rem);
-      }
-    } else {
-      SDEBUGln("Wrong rx size=%d rxbytes=%d", size, rxbytes);
-      readBurstRegister(CC1101_RXFIFO, rxBuffer, 64);
-      SDEBUGln("%63s", (char *)rxBuffer);
+    } else { // mismatch between register values
       size = 0;
     }
   } else {
@@ -1177,18 +1130,8 @@ uint8_t SmartCC1101::receiveData(uint8_t *rxBuffer) {
   return size;
 }
 
-#ifdef DEBUG_CC1101
 /**
-* output register contents to console
+* Create instance for convenience
 */
-
-void SmartCC1101::dumpRegs(void) {
-
-  SDEBUGln("CC1101 Register Dump:");
-  for (int i = 0; i < 0x40; i++) {
-    SDEBUGln("Register %0x: %0x", i, readStatusRegister(i));
-  }
-}
-#endif
-
 SmartCC1101 Smartcc1101;
+
