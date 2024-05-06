@@ -1,0 +1,76 @@
+# This is the name of the workflow, visible on GitHub UI.
+name: Tests
+
+# Here we tell GitHub to run the workflow when a commit
+# is pushed or a Pull Request is opened.
+on: [push, pull_request]
+
+# This is the list of jobs that will be run concurrently.
+# Since we use a build matrix, the actual number of jobs
+# started depends on how many configurations the matrix
+# will produce.
+jobs:
+  # This is the name of the job - can be whatever.
+  test-matrix:
+
+    # Here we tell GitHub that the jobs must be determined
+    # dynamically depending on a matrix configuration.
+    strategy:
+      matrix:
+        # The matrix will produce one job for each configuration
+        # parameter of type `arduino-platform`, in this case a
+        # total of 2.
+        arduino-platform: ["arduino:avr", "esp32:esp32"]
+        # This is usually optional but we need to statically define the
+        # FQBN of the boards we want to test for each platform. In the
+        # future the CLI might automatically detect and download the core
+        # needed to compile against a certain FQBN, at that point the
+        # following `include` section will be useless.
+        include:
+          # This works like this: when the platform is "arduino:avr", the
+          # variable `fqbn` is set to "arduino:avr:uno".
+          - arduino-platform: "arduino:avr"
+            fqbn: "arduino:avr:uno"
+            board_manager_url: ""
+            additional_options: ""
+          - arduino-platform: "esp32:esp32"
+            fqbn: "esp32:esp32:esp32s3"
+            board_manager_url: "https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json"
+            additional_options: "--additional-urls"
+
+    # This is the platform GitHub will use to run our workflow
+    runs-on: ubuntu-latest
+
+    env:
+      # Location of the repository relative to the runner workspace
+      REPO_PATH: libraries/SmartCC1101
+
+    # This is the list of steps this job will run.
+    steps:
+      # First of all, we clone the repo using the `checkout` action.
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          path: ${{ env.REPO_PATH }}
+
+      # We use the `arduino/setup-arduino-cli` action to install and
+      # configure the Arduino CLI on the system.
+      - name: Setup Arduino CLI
+        uses: arduino/setup-arduino-cli@v1
+
+      # We then install the platform, which one will be determined
+      # dynamically by the build matrix.
+      - name: Install platform
+        run: |
+          arduino-cli core update-index ${{ matrix.additional_options }} ${{ matrix.board_manager_url }}
+          arduino-cli core install ${{ matrix.arduino-platform }} ${{ matrix.additional_options }} ${{ matrix.board_manager_url }}
+
+      # Finally, we compile the sketch, using the FQBN that was set
+      # in the build matrix.
+      - name: Compile Sketch
+        env:
+          # Configure Arduino CLI so this repository checked out under the libraries subfolder will be recognized
+          ARDUINO_DIRECTORIES_USER: ${{ github.workspace }}
+        run: |
+          arduino-cli compile --fqbn ${{ matrix.fqbn }} ${{ matrix.additional_options }} ${{ matrix.board_manager_url }} ${{ env.REPO_PATH }}/examples/Sender
+          arduino-cli compile --fqbn ${{ matrix.fqbn }} ${{ matrix.additional_options }} ${{ matrix.board_manager_url }} ${{ env.REPO_PATH }}/examples/Receiver
