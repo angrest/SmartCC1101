@@ -3,6 +3,29 @@
 * @file SmartCC1101.h
 * @author Axel Grewe
 * 
+* @copyright
+*  MIT License
+*  
+*  Copyright (c) 2024 Axel Grewe
+*  
+*  Permission is hereby granted, free of charge, to any person obtaining a copy
+*  of this software and associated documentation files (the "Software"), to deal
+*  in the Software without restriction, including without limitation the rights
+*  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+*  copies of the Software, and to permit persons to whom the Software is
+*  furnished to do so, subject to the following conditions:
+*  
+*  The above copyright notice and this permission notice shall be included in all
+*  copies or substantial portions of the Software.
+*  
+*  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+*  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+*  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+*  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+*  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+*  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+*  SOFTWARE.
+* 
 * This library is designed to use CC1101/CC1100 module on the Arduino platform.
 * Some care was taken to reduce memory footprint to allow it to run on e.g. an Arduino nano pro.
 * Using the functions of the library, you can easily send and receive data by the CC1101/CC1100 module.
@@ -12,6 +35,7 @@
 * @note GDO based communication is not implemented.
 * @note The number of bytes to send/receive in a single transmission is limited to 61 bytes.
 */
+
 
 #ifndef SmartCC1101_SRC_DRV_h
 #define SmartCC1101_SRC_DRV_h
@@ -109,17 +133,17 @@
 * Strobe commands
 */
 #define CC1101_SRES 0x30     // Reset chip.
-#define CC1101_SFSTXON 0x31  // Enable and calibrate frequency synthesizer (if MCSM0.FS_AUTOCAL=1). \
-                             // If in RX/TX: Go to a wait state where only the synthesizer is \
+#define CC1101_SFSTXON 0x31  // Enable and calibrate frequency synthesizer (if MCSM0.FS_AUTOCAL=1).
+                             // If in RX/TX: Go to a wait state where only the synthesizer is
                              // running (for quick RX / TX turnaround).
 #define CC1101_SXOFF 0x32    // Turn off crystal oscillator.
 #define CC1101_SCAL 0x33     // Calibrate frequency synthesizer and turn it off (enables quick start).
-#define CC1101_SRX 0x34      // Enable RX. Perform calibration first if coming from IDLE and \
+#define CC1101_SRX 0x34      // Enable RX. Perform calibration first if coming from IDLE and 
                              // MCSM0.FS_AUTOCAL=1.
-#define CC1101_STX 0x35      // In IDLE state: Enable TX. Perform calibration first if \
-                             // MCSM0.FS_AUTOCAL=1. If in RX state and CCA is enabled \
+#define CC1101_STX 0x35      // In IDLE state: Enable TX. Perform calibration first if
+                             // MCSM0.FS_AUTOCAL=1. If in RX state and CCA is enabled
                              // Only go to TX if channel is clear.
-#define CC1101_SIDLE 0x36    // Exit RX / TX, turn off frequency synthesizer and exit. \
+#define CC1101_SIDLE 0x36    // Exit RX / TX, turn off frequency synthesizer and exit.
                              // Wake-On-Radio mode if applicable.
 #define CC1101_SAFC 0x37     // Perform AFC adjustment of the frequency synthesizer.
 #define CC1101_SWOR 0x38     // Start automatic RX polling sequence (Wake-on-Radio).

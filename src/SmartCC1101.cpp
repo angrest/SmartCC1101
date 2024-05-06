@@ -2,6 +2,29 @@
 * @brief CC1101 module library
 * @file SmartCC1101.cpp
 * @author Axel Grewe
+*
+* @copyright
+*  MIT License
+*  
+*  Copyright (c) 2024 Axel Grewe
+*  
+*  Permission is hereby granted, free of charge, to any person obtaining a copy
+*  of this software and associated documentation files (the "Software"), to deal
+*  in the Software without restriction, including without limitation the rights
+*  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+*  copies of the Software, and to permit persons to whom the Software is
+*  furnished to do so, subject to the following conditions:
+*  
+*  The above copyright notice and this permission notice shall be included in all
+*  copies or substantial portions of the Software.
+*  
+*  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+*  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+*  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+*  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+*  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+*  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+*  SOFTWARE.
 * 
 * This library is designed to use CC1101/CC1100 module on the Arduino platform.
 * Some care was taken to reduce memory footprint to allow it to run on e.g. an Arduino nano pro.
@@ -745,7 +768,7 @@ void SmartCC1101::setSyncWord(uint8_t sh, uint8_t sl) {
 * Possible values:
 * sync_NONE   No preamble/sync
 * sync_1516   15/16 sync word bits detected
-* sync_1616   16/16 sync word bits detected
+* sync_1616   16/16 sync word bits detected (default)
 * sync_3032   30/32 sync word bits detected
 * sync_NONECS No preamble/sync, carrier-sense above threshold
 * sync_1516CS 15/16 + carrier-sense above threshold
@@ -767,7 +790,7 @@ void SmartCC1101::setSyncMode(sync_Mode syncm) {
 * Possible values:
 * pre_2
 * pre_3
-* pre_4
+* pre_4 (default)
 * pre_6
 * pre_8
 * pre_12
@@ -1113,7 +1136,6 @@ uint8_t SmartCC1101::receiveData(uint8_t *rxBuffer) {
         lqi = getLQI(status[1]);
         crc = checkCRC(status[1]);
       }
-      uint8_t rem = rxbytes - (size + 3);
     } else { // mismatch between register values
       size = 0;
     }
