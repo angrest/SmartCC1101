@@ -1,16 +1,9 @@
-// Memeory Consumption:
-// 20240421:
-// Der Sketch verwendet 5582 Bytes (18%) des Programmspeicherplatzes. Das Maximum sind 30720 Bytes.
-// Globale Variablen verwenden 216 Bytes (10%) des dynamischen Speichers, 1832 Bytes für lokale Variablen verbleiben. Das Maximum sind 2048 Bytes.
-// 20240430:
-// Der Sketch verwendet 4582 Bytes (14%) des Programmspeicherplatzes. Das Maximum sind 30720 Bytes.
-// Globale Variablen verwenden 216 Bytes (10%) des dynamischen Speichers, 1832 Bytes für lokale Variablen verbleiben. Das Maximum sind 2048 Bytes.
 /**
 * @brief Example for CC1101 module library
 * @file Receiver.ino
 * @author Axel Grewe
 * 
-* This is the implementation of a basic sender
+* This is the implementation of a basic receiver
 *
 * @copyright
 *  MIT License
@@ -35,7 +28,6 @@
 *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 *  SOFTWARE.
 */
-
 #include <SmartCC1101.h>
 
 void setup() {
@@ -50,16 +42,14 @@ void setup() {
     delay(20000);
   }
 
-  // Most of the settings repeat standard settings and are here for illustration
-  Smartcc1101.setDCFilterOff(false);                        // Disable digital DC blocking filter before demodulator. Only for data rates ≤ 250 kBaud. The recommended IF frequency changes when the DC blocking is disabled. true = Disable (current optimized), false = Enable (better sensitivity).
+  // Most of the settings repeat standard settings and are here for illustration 
   Smartcc1101.setModulation(SmartCC1101::mod_2FSK);         // set modulation mode. Possible values: mod_2FSK (default), mod_GFSK, mod_ASKOOK, mod_4FSK, mod_MSK
   Smartcc1101.setCarrierFrequency(868350000);               // Set tranmsision frequency in Hz. Default = 868.35 MHz). The cc1101 can use 300-348 MHZ, 387-464MHZ and 779-928MHZ. More info in the datasheet.
-  Smartcc1101.setPA(12);                                    // Set TXPower. The following settings are possible depending on the frequency band.  (-30  -20  -15  -10  -6    0    5    7    10   11   12) Default is max!
   Smartcc1101.setDeviation(47608);                          // Set the Frequency deviation in Hz. Value from 1586 to 380850. Default is 47607 kHz. Note: the algorithm rounds down. On exact interval limits, the next lower value might be taken (that's why here 47608 is used)
   Smartcc1101.setRXBandWitdth(SmartCC1101::bw_812kHz);      // Set the Receive Bandwidth in kHz. Possible values: bw_58kHz  = 58kHz, bw_68kHz, bw_81kHz, bw_102kHz,bw_116kHz, bw_135kHz, bw_162kHz, bw_203kHz (default), bw_232kHz, bw_270kHz, bw_325kHz, bw_406kHz, bw_464kHz, bw_541kHz, bw_650kHz, bw_812kHz = 812kHz
   Smartcc1101.setSymbolRate(100000);                        // Set the Data Rate in Baud. Value from 20 to 1621830 Default is 115051 Baud
-  Smartcc1101.setSyncWord(0xD3, 0x91);                      // Set sync word. Must match in sender and receiver. (Syncword high, Syncword low). Values given are default values
-  Smartcc1101.setSyncMode(SmartCC1101::sync_1616);          // Combined sync-word qualifier mode. sync_NONE = No preamble/sync. sync_1516 = 15/16 sync word bits detected. sync_1616 = 16/16 sync word bits detected (default). sync_3032 = 30/32 sync word bits detected (sync word sent twice).
+  Smartcc1101.setSyncWord(0xD3,0x91);                       // Set sync word. Must match in sender and receiver. (Syncword high, Syncword low). Values given are default values
+  Smartcc1101.setSyncMode(SmartCC1101::sync_1616);          // Combined sync-word qualifier mode. sync_NONE = No preamble/sync. sync_1516 = 15/16 sync word bits detected. sync_1616 = 16/16 sync word bits detected (default). sync_3032 = 30/32 sync word bits detected (sync word sent twice). 
                                                             // sync_NONECS = No preamble/sync, carrier-sense above threshold. sync_1516CS = 15/16 + carrier-sense above threshold. sync_1516CS = 15/16 + carrier-sense above threshold. sync_1616CS = 16/16 + carrier-sense above threshold. sync_3032CS = 30/32 (sync word sent twice). + carrier-sense above threshold.
   Smartcc1101.setPRE(SmartCC1101::pre_4);                   // Sets the minimum number of preamble bytes to be transmitted. Possible values: pre_2 : 2, pre_3 : 3, pre_4 : 4 (default), pre_6 : 6, pre_8 : 8, pre_12 : 12, pre_16 : 16, pre_24 : 24
   Smartcc1101.setPQT(0);                                    // Preamble quality estimator threshold. 0 is the derfault. The preamble quality estimator increases an internal counter by one each time a bit is received that is different from the previous bit, and decreases the counter by 8 each time a bit is received that is the same as the last bit. A threshold of 4∙PQT for this counter is used to gate sync word detection. When PQT=0 a sync word is always accepted.
@@ -75,12 +65,38 @@ void setup() {
   Smartcc1101.setCRC_AF(false);                             // Enable automatic flush of RX FIFO when CRC is not OK. (Default: false)
 }
 
+
 void loop() {
+  uint8_t buffer[61]{ 0 };  // buffer for the data received by CC1101
 
-  const char messageText[] = "Hello world!";
-  // Send data. Returns when data is actually sent.
-  Smartcc1101.sendData(messageText);
+  int len = Smartcc1101.receiveData(buffer);
+  // len will be 0 if nothing is yet received.
+  if (len > 0) {
+    Serial.print(len);
+    Serial.println(" bytes received.");
 
-  // Wait a moment untill next data sent.
-  delay(1000);
+    // check transfer quality parameters
+    int8_t RSSI = Smartcc1101.getRSSI();
+    bool CRC = Smartcc1101.checkCRC();
+    uint8_t LQI = Smartcc1101.getLQI();
+
+    // will try to interpret the buffer received as character array, just make sure it's sero-terminated.
+    // if it was actually sent from a character arry, this is not necessary
+    buffer[len] = 0;
+
+    // check if crc is correct
+    if (CRC) {
+      Serial.println("CRC ok. RSSI: ");
+      Serial.print(RSSI);
+      Serial.print("dB, LQI ");
+      Serial.println(LQI);
+      Serial.println("Data:");
+      Serial.println((char *)buffer);
+    } else {
+      Serial.print("CRC Error. RSSI: ");
+      Serial.print(RSSI);
+      Serial.print("dB, LQI ");
+      Serial.println(LQI);
+    }
+  }
 }
