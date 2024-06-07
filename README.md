@@ -189,7 +189,7 @@ void loop() {
 
 `bool getCC1101(void)` checks for the presence of a CC1101 module on the SPI bus.
 
-`void init(void)` must be called prijor to using any other funtion. Will establish the necessary setup of the CC1101 chip. Onyl exception: `gtCC1101()`
+`void init(void)` must be called prior to using any other funtion. Will establish the necessary setup of the CC1101 chip. Only exception: `gtCC1101()`
 
 `void sleep(void)` Sets the CC1101 to sleep mode, reducing power consumption. The next access will wake the chip up again, no special procedure is needed.
 
