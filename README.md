@@ -126,8 +126,8 @@ void loop() {
     bool CRC = Smartcc1101.checkCRC();
     uint8_t LQI = Smartcc1101.getLQI();
 
-    // will try to interpret the buffer received as character array, just make sure it's sero-terminated.
-    // if it was actually sent from a character arry, this is not necessary
+    // will try to interpret the buffer received as character array, just make sure it's zero-terminated.
+    // if it was actually sent from a character array, this is not necessary
     buffer[len] = 0;
 
     // check if crc is correct
