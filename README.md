@@ -86,7 +86,7 @@ void loop() {
 
 ```
 
-The Corresponding receiver is also available:
+The corresponding receiver (also available in the examples folder):
 
 ```C++
 
@@ -151,20 +151,20 @@ void loop() {
 
 ## Funtion reference
 
-`void init(void)` must be called prior to using any other funtion. Will establish the necessary setup of the **CC1101** chip. Only exception: `getCC1101()`.
+`void init(void)` must be called prior to using any other function. Will establish the necessary setup of the **CC1101** chip. Only exception: `getCC1101()` may be called prior to `init()`.
 
-`bool checkCRC(void)` Check if CRC is correct. Only meaningful after data is received via `receiveData()`.
+`bool checkCRC(void)` Check if CRC is correct. Returns `true` if CRCs match in last transmission. Only meaningful after data is received via `receiveData()`.
 
 `bool getCC1101(void)` checks for the presence of a **CC1101** module on the SPI bus.
 
 `uint8_t getLQI(void)` Link Quality Indicator. The Link Quality Indicator is a metric of the current quality of the received signal (smaller is better). When called after data is received via `receiveData()`. LQI corresponds to the data received. If called intermittently, returns the current link quality.
-   
+
 `int8_t getRSSI(void)` Received Signal Strength Indicator. The value is the estimated signal strength in dBm. When called after data is received via `receiveData()`. RSSI corresponds to the data received. If called intermittently, returns the current signal strength.
- 
- `uint8_t receiveData(uint8_t *rxBuffer)` Check if data is received and copy it to rxBuffer. Returns 0 if no data is received yet, transmission is in progress or CRC wrong and `void setCRC_AF(true)`. If data was received, `setRX()`must be called again.
-  
+
+`uint8_t receiveData(uint8_t *rxBuffer)` Check if data is received and copy it to rxBuffer. Returns 0 if no data is received yet, transmission is in progress or CRC wrong and `void setCRC_AF(true)`. If data was received, `setRX()`must be called again.
+
 `void sendData(const char *txBuffer)` Sends the zero-terminated character string pointed to. Will return when data is sent. Must be max 61 characters including the trailing 0.
-  
+
 `void sendData(const uint8_t *txBuffer, uint8_t size)` Sends size bytes pointed to by txBuffer. Must be max. 61 bytes.
 
 `void setAddr(uint8_t addr)` On TX, sets the address of the package to be sent. On RX, determines from which address are acceptes if address check is enabled with `setAddrCheck`.
@@ -197,7 +197,7 @@ void loop() {
 
 `void setDeviation(uint32_t deviation)` Set the frequency deviation in Hz. Possible values from 1586 to 380850. Default is 47607 Hz. 
 > [!NOTE]
-> the effective deviation values are quantized and algorithm rounds down. Using the exact interval limits, the next lower value might be taken (e.g. for 47607, you must actually specify 4760**8**.
+> the effective deviation values are quantized and algorithm rounds down. Using the exact interval limits, the next lower value might be taken (e.g. for 47607, you must actually specify 4760**8**).
 
 `void setFEC(bool fec)` Enable forward error correction. Only supported in fixed packet length mode (`PacketLengthConfig(pktl_FIXED)`) and `setCRCCheck(true)`.
 
