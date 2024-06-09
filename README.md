@@ -149,7 +149,7 @@ void loop() {
 
 ```
 
-## Funtion reference
+## Function reference
 
 `void init(void)` must be called prior to using any other function. Will establish the necessary setup of the **CC1101** chip. Only exception: `getCC1101()` may be called prior to `init()`.
 
