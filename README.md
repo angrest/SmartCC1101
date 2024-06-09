@@ -18,7 +18,10 @@ If the module lays with the antenna connectors to the top, on the lower connecti
 + GDO0 (unused)
 + CS (or CSN)
 
-The modules usually support voltages from 1.8V to 3.6V, so please use a level converter when connecting to a 5V CPU board. Also, be careful when soldering the connections, I have grilled several **CC1101** modules...
+> [!IMPORTANT]
+> The modules usually support voltages from 1.8V to 3.6V, so please use a level converter when connecting to a 5V CPU board.
+
+Also, be careful when soldering the connections, I have grilled several **CC1101** modules...
 
 ### Processor boards
 **Arduino Pro Mini (ATMega328p)**
@@ -45,10 +48,12 @@ The modules usually support voltages from 1.8V to 3.6V, so please use a level co
 + COPI 11
 + CS 10
 
-For ESP32 and (to a limited extent) ESP8266 support custom SPI pinout. These differnt configurations need to be hardcoded in the library though. Later versions may support user-specified SPI configurations.
+
+> [!NOTE]
+> ESP32 and (to a limited extent) ESP8266 support custom SPI pinout. If, for some reason, you need a custom pin configurations, you have to edit the [library header file](src/SmartCC1101.h) directly for the time being. Later versions may support user-specified SPI configurations.
 
 ## Programming
-The following code implements a simple sender and is available in the examples folder.
+The following code implements a simple [sender](./examples/Sender/Sender.ino) and is available in the  [examples folder](./examples/).
 
 The settings are not limited to the `setup()` and may be changed anytime in the `loop()` if needed.
 
@@ -68,10 +73,10 @@ void setup() {
     delay(20000);
   }
 
-  SmartCC1101.setSymbolRate(100000);                        // Set the Data Rate in Baud. Value from 20 to 1621830 Default is 115051 Baud
-  SmartCC1101.setManchester(true);                          // Enables Manchester encoding/decoding. false = Disable (default), true = Enable.
-  SmartCC1101.setWhiteData(true);                           // Turn data whitening on / off. false = Whitening off (default). true = Whitening on.
-  SmartCC1101.setCRCCheck(true);                            // true = CRC calculation in TX and CRC check in RX enabled. false = CRC disabled for TX and RX (default).
+  SmartCC1101.setSymbolRate(100000);                        // Set the Data Rate to 10kBaud
+  SmartCC1101.setManchester(true);                          // Enable Manchester encoding/decoding.
+  SmartCC1101.setWhiteData(true);                           // Turn data whitening on.
+  SmartCC1101.setCRCCheck(true);                            // CRC calculation in TX and CRC check in RX enabled.
 }
 
 void loop() {
@@ -80,13 +85,13 @@ void loop() {
   // Send data. Returns when data is actually sent.
   SmartCC1101.sendData(messageText);
 
-  // Wait a moment untill next data sent.
+  // Wait for a second untill next data sent.
   delay(1000);
 }
 
 ```
 
-The corresponding receiver (also available in the examples folder):
+The corresponding [receiver](./examples/Receiver/Receiver.ino) (also available in the [examples folder](./examples/)):
 
 ```C++
 
@@ -104,19 +109,19 @@ void setup() {
     delay(20000);
   }
 
-  SmartCC1101.setRXBandWitdth(SmartCC1101::bw_812kHz);      // Set the Receive Bandwidth in kHz. Possible values: bw_58kHz  = 58kHz, bw_68kHz, bw_81kHz, bw_102kHz,bw_116kHz, bw_135kHz, bw_162kHz, bw_203kHz (default), bw_232kHz, bw_270kHz, bw_325kHz, bw_406kHz, bw_464kHz, bw_541kHz, bw_650kHz, bw_812kHz = 812kHz
-  SmartCC1101.setSymbolRate(100000);                        // Set the Data Rate in Baud. Value from 20 to 1621830 Default is 115051 Baud
-  SmartCC1101.setManchester(true);                          // Enables Manchester encoding/decoding. false = Disable (default), true = Enable.
-  SmartCC1101.setWhiteData(true);                           // Turn data whitening on / off. false = Whitening off (default). true = Whitening on.
-  SmartCC1101.setCRCCheck(true);                            // true = CRC calculation in TX and CRC check in RX enabled. false = CRC disabled for TX and RX (default).
+  SmartCC1101.setRXBandWitdth(SmartCC1101::bw_812kHz);      // Set the Receive Bandwidth to 812 kHz
+  SmartCC1101.setSymbolRate(100000);                        // Set the Data Rate to 10 kBaud
+  SmartCC1101.setManchester(true);                          // Enables Manchester encoding/decoding.
+  SmartCC1101.setWhiteData(true);                           // Turn data whitening on.
+  SmartCC1101.setCRCCheck(true);                            // CRC calculation in TX and CRC check in RX enabled. 
 }
 
 
 void loop() {
   uint8_t buffer[61]{ 0 };  // buffer for the data received by **CC1101**
 
-  int len = SmartCC1101.receiveData(buffer);
-  // len will be 0 if nothing is yet received.
+  int len = SmartCC1101.receiveData(buffer);  // len will be 0 if nothing is yet received.
+
   if (len > 0) {
     Serial.print(len);
     Serial.println(" bytes received.");
@@ -132,26 +137,25 @@ void loop() {
 
     // check if crc is correct
     if (CRC) {
-      Serial.println("CRC ok. RSSI: ");
-      Serial.print(RSSI);
-      Serial.print("dB, LQI ");
-      Serial.println(LQI);
+      Serial.println("CRC ok.");
       Serial.println("Data:");
       Serial.println((char *)buffer);
     } else {
-      Serial.print("CRC Error. RSSI: ");
-      Serial.print(RSSI);
-      Serial.print("dB, LQI ");
-      Serial.println(LQI);
+      Serial.println("CRC Error.");
     }
+    Serial.println("RSSI: ");
+    Serial.print(RSSI);
+    Serial.print("dB, LQI ");
+    Serial.println(LQI);
   }
 }
 
 ```
 
 ## Function reference
+If you need more detailed information, please check the [CC1101 data sheet](https://www.ti.com/lit/ds/symlink/cc1101.pdf).
 
-`void init(void)` must be called prior to using any other function. Will establish the necessary setup of the **CC1101** chip. Only exception: `getCC1101()` may be called prior to `init()`.
+### Functions in alphabetic order:
 
 `bool checkCRC(void)` Check if CRC is correct. Returns `true` if CRCs match in last transmission. Only meaningful after data is received via `receiveData()`.
 
@@ -160,6 +164,8 @@ void loop() {
 `uint8_t getLQI(void)` Link Quality Indicator. The Link Quality Indicator is a metric of the current quality of the received signal (smaller is better). When called after data is received via `receiveData()`. LQI corresponds to the data received. If called intermittently, returns the current link quality.
 
 `int8_t getRSSI(void)` Received Signal Strength Indicator. The value is the estimated signal strength in dBm. When called after data is received via `receiveData()`. RSSI corresponds to the data received. If called intermittently, returns the current signal strength.
+
+`void init(void)` must be called prior to using any other function. Will establish the necessary setup of the **CC1101** chip. Only exception: `getCC1101()` may be called prior to `init()`.
 
 `uint8_t receiveData(uint8_t *rxBuffer)` Check if data is received and copy it to rxBuffer. Returns 0 if no data is received yet, transmission is in progress or CRC wrong and `void setCRC_AF(true)`. If data was received, `setRX()`must be called again.
 
@@ -177,7 +183,7 @@ void loop() {
 |  adc_YES0BC | Address check and 0 (0x00) broadcast |
 |  adc_YES0FFBC | Address check and 0 (0x00) and 255 (0xFF) broadcast |
 
-`void setCarrierFrequency(uint32_t freq)` Set tranmsision frequency in Hz. Default = 868.35 MHz). The **CC1101** can use the frequenciy ranges 300-348 MHZ, 387-464MHZ and 779-928MHZ.
+`void setCarrierFrequency(uint32_t freq)` Set tranmsision frequency in Hz. Default = 868.35 MHz). The **CC1101** can use the frequenciy ranges 300-348 MHZ, 387-464 MHZ and 779-928 MHZ.
 > [!WARNING]
 > Please respect local regulations.
 
@@ -263,21 +269,21 @@ void loop() {
 `void setRXBandWitdth(rx_BandWidth bw)` Set the Receive Bandwidth. Value can be cosen from predefined list of values:   
 | Bandwidth | Value   |
 |----------|---------|
-| 58KHz | bw_58kHz |
-| 68kHz | bw_68kHz |
-| 81kHz | bw_81kHz |
-| 102kHz | bw_102kHz |
-| 116kHz | bw_116kHz |
-| 135kHz | bw_135kHz |
-| 203kHz | bw_203kHz (default) |
-| 232kHz | bw_232kHz |
-| 270kHz | bw_270kHz |
-| 325kHz | bw_325kHz |
-| 406kHz | bw_406kHz |
-| 464kHz | bw_464kHz |
-| 541kHz | bw_541kHz |
-| 650kHz | bw_650kHz |
-| 812kHz | bw_812kHz |
+| 58 KHz | bw_58kHz |
+| 68 kHz | bw_68kHz |
+| 81 kHz | bw_81kHz |
+| 102 kHz | bw_102kHz |
+| 116 kHz | bw_116kHz |
+| 135 kHz | bw_135kHz |
+| 203 kHz | bw_203kHz (default) |
+| 232 kHz | bw_232kHz |
+| 270 kHz | bw_270kHz |
+| 325 kHz | bw_325kHz |
+| 406 kHz | bw_406kHz |
+| 464 kHz | bw_464kHz |
+| 541 kHz | bw_541kHz |
+| 650 kHz | bw_650kHz |
+| 812 kHz | bw_812kHz |
 
 `void setSymbolRate(double symbolRate)` Data transmission rate in baud. Value from 20 to 1621830 Default is 115051 Baud. 
 > [!IMPORTANT]
