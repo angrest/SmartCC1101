@@ -264,10 +264,12 @@ void SmartCC1101::init(uint8_t csPin, uint8_t sckPin, uint8_t cipoPin, uint8_t c
   pinMode(csPin_, OUTPUT);
   chipDeselect();
 
-#if defined(ESP32) || defined(ESP8266)
+#if defined(ESP32)
+  // ESP32 SPIClass::begin() accepts (sck, miso, mosi, ss) for pin remapping.
   spi_->begin(sckPin_, cipoPin_, copiPin_, csPin_);
 #else
-  spi_->begin();  // AVR: hardware SPI pins are fixed, pin parameters above are ignored
+  // ESP8266 and AVR: SPI pins are hardware-fixed; begin() takes no arguments.
+  spi_->begin();
 #endif
 
   reset();        // reset first before going further
