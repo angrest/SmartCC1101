@@ -52,38 +52,6 @@ uint8_t const PROGMEM PA_TABLE_915[10]{ 0x03, 0x0E, 0x1E, 0x27, 0x38, 0x8E, 0x84
 * General helpers
 */
 
-/**
-* Register a custom delay function (optional).
-*
-* The library calls delay() internally during SPI reset and state transitions
-* (1–2 ms at a time). On bare-metal Arduino targets this is fine. Under an
-* RTOS, blocking in delay() wastes CPU time that other tasks could use.
-*
-* Pass a function with the signature  void myDelay(uint8_t ms)  to replace
-* the built-in delay() with a scheduler-friendly alternative, for example:
-*
-*   void myDelay(uint8_t ms) { vTaskDelay(ms / portTICK_PERIOD_MS); }
-*   Smartcc1101.setDelayFunction(myDelay);
-*
-* This function is entirely optional. If never called, delay() is used.
-* @param delayF  Pointer to a delay function taking milliseconds as uint8_t.
-* @return none.
-*/
-void SmartCC1101::setDelayFunction(delayfunction delayF) {
-  delayFunc = delayF;
-}
-
-/**
-* Call custom delay function set by setDelayFunction, or fall back to delay().
-* @param ms Milliseconds to wait
-* @return none
-*/
-void SmartCC1101::smartDelay(uint8_t ms) {
-  if (delayFunc)
-    delayFunc(ms);
-  else
-    delay(ms);
-}
 
 /**
 * SPI helper functions
@@ -295,9 +263,9 @@ void SmartCC1101::init(uint8_t csPin, uint8_t sckPin, uint8_t cipoPin, uint8_t c
 */
 void SmartCC1101::reset(void) {
   chipSelect();
-  smartDelay(1);
+  delay(1);
   chipDeselect();
-  smartDelay(1);
+  delay(1);
   chipSelect();
   waitCIPO();
 
@@ -1035,7 +1003,7 @@ void SmartCC1101::sendData(const uint8_t *txBuffer, uint8_t size) {
     state = getState();
     if (state == state_IDLE) break;
 
-    smartDelay(2);
+    delay(2);
   }
 
   strobe(CC1101_SFTX);  //flush TXfifo

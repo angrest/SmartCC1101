@@ -202,9 +202,6 @@
 class SmartCC1101 {
 
 public:
-  /** Replace the built-in delay() with a custom function (e.g. vTaskDelay for
-   *  FreeRTOS). Optional — only needed when running under an RTOS. */
-  void setDelayFunction(void delayFunc(uint8_t));
   void init(uint8_t csPin   = CS_PIN,
             uint8_t sckPin  = SCK_PIN,
             uint8_t cipoPin = CIPO_PIN,
@@ -336,7 +333,6 @@ private:
   uint8_t strobe(uint8_t strobe);
   void setIDLEState(void);
   void onWakeup(void);
-  void smartDelay(uint8_t ms);
   void reset(void);
   void configCC1101(void);
   int8_t getRSSI(uint8_t rawValue);
@@ -358,8 +354,6 @@ private:
   uint8_t lqi;
   int8_t rssi;
 
-  typedef void delayfunction(uint8_t);
-  delayfunction *delayFunc = NULL;
 
 #ifdef SPI_HAS_TRANSACTION
   SPISettings mySPISettings;

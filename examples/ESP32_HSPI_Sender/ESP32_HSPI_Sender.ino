@@ -68,14 +68,6 @@ void setup() {
     while (1);
   }
 
-  // Optional: replace the internal delay() calls with a FreeRTOS-friendly
-  // alternative so the scheduler can run other tasks during SPI waits.
-  // Only useful when running under an RTOS — omit for standard Arduino projects.
-  //
-  //   Smartcc1101.setDelayFunction([](uint8_t ms) {
-  //     vTaskDelay(ms / portTICK_PERIOD_MS);
-  //   });
-
   Smartcc1101.setCarrierFrequency(868350000);              // 868.35 MHz
   Smartcc1101.setModulation(SmartCC1101::mod_2FSK);
   Smartcc1101.setSymbolRate(100000);                       // 100 kBaud

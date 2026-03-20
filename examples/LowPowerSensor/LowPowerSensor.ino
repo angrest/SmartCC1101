@@ -10,7 +10,6 @@
  *   - sleep() to power down the CC1101 (~200 nA) between transmissions
  *     (wakeup is automatic on the next sendData(), setRX(), or receiveData() call;
  *      restored registers are handled transparently by the library)
- *   - Optional: injecting a custom delay function for RTOS integration
  *
  * The packet payload is a small C struct containing a counter and simulated
  * sensor readings. Replace the placeholder values with real sensor reads.
@@ -61,16 +60,6 @@ struct SensorPacket {
 static_assert(sizeof(SensorPacket) <= 61, "SensorPacket exceeds CC1101 payload limit of 61 bytes");
 
 uint16_t txCounter = 0;
-
-// ---------------------------------------------------------------------------
-// Optional: inject a custom delay function for RTOS / tickless idle.
-// The library calls this instead of delay() during SPI operations.
-// Uncomment and implement for FreeRTOS or other schedulers:
-//
-//   void myDelay(uint8_t ms) { vTaskDelay(ms / portTICK_PERIOD_MS); }
-//
-// Then call in setup():   Smartcc1101.setDelayFunction(myDelay);
-// ---------------------------------------------------------------------------
 
 void setup() {
   Serial.begin(115200);
