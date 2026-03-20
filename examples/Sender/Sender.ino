@@ -1,15 +1,8 @@
-// Memeory Consumption:
-// 20240421:
-// Der Sketch verwendet 5582 Bytes (18%) des Programmspeicherplatzes. Das Maximum sind 30720 Bytes.
-// Globale Variablen verwenden 216 Bytes (10%) des dynamischen Speichers, 1832 Bytes für lokale Variablen verbleiben. Das Maximum sind 2048 Bytes.
-// 20240430:
-// Der Sketch verwendet 4582 Bytes (14%) des Programmspeicherplatzes. Das Maximum sind 30720 Bytes.
-// Globale Variablen verwenden 216 Bytes (10%) des dynamischen Speichers, 1832 Bytes für lokale Variablen verbleiben. Das Maximum sind 2048 Bytes.
 /**
 * @brief Example for CC1101 module library
-* @file Receiver.ino
+* @file Sender.ino
 * @author Axel Grewe
-* 
+*
 * This is the implementation of a basic sender
 *
 * @copyright
@@ -41,6 +34,11 @@
 void setup() {
   Serial.begin(115200);
 
+  // Initialize with default pins. To use a custom CS pin (any platform):
+  //   Smartcc1101.init(7);                    // CS on pin 7
+  // ESP32/ESP8266: all SPI pins and/or a different SPI bus can be specified:
+  //   Smartcc1101.init(CS_PIN, SCK_PIN, CIPO_PIN, COPI_PIN);
+  //   Smartcc1101.init(5, 18, 19, 23, mySPI); // custom SPIClass instance
   Smartcc1101.init();  // must be called first to initialize the CC1101
 
   if (Smartcc1101.getCC1101()) {  // Check the CC1101 SPI connection.

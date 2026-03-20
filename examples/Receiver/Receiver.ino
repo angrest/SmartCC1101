@@ -33,6 +33,11 @@
 void setup() {
   Serial.begin(115200);
 
+  // Initialize with default pins. To use a custom CS pin (any platform):
+  //   Smartcc1101.init(7);                    // CS on pin 7
+  // ESP32/ESP8266: all SPI pins and/or a different SPI bus can be specified:
+  //   Smartcc1101.init(CS_PIN, SCK_PIN, CIPO_PIN, COPI_PIN);
+  //   Smartcc1101.init(5, 18, 19, 23, mySPI); // custom SPIClass instance
   Smartcc1101.init();  // must be called first to initialize the CC1101
 
   if (Smartcc1101.getCC1101()) {  // Check the CC1101 SPI connection.
@@ -63,6 +68,8 @@ void setup() {
   Smartcc1101.setFEC(false);                                // Enable Forward Error Correction (FEC) with interleaving for packet payload (Only supported for fixed packet length mode. false = Disable (default), true = Enable.
   Smartcc1101.setCRCCheck(true);                            // true = CRC calculation in TX and CRC check in RX enabled. false = CRC disabled for TX and RX (default).
   Smartcc1101.setCRC_AF(false);                             // Enable automatic flush of RX FIFO when CRC is not OK. (Default: false)
+
+  Smartcc1101.setRX();  // switch CC1101 to receive mode
 }
 
 
@@ -98,5 +105,6 @@ void loop() {
       Serial.print("dB, LQI ");
       Serial.println(LQI);
     }
+    Smartcc1101.setRX();  // go back to receive mode for next packet
   }
 }
