@@ -43,14 +43,11 @@
 */
 
 
-#ifndef SmartCC1101_SRC_DRV_h
-#define SmartCC1101_SRC_DRV_h
+#ifndef SMARTCC1101_H
+#define SMARTCC1101_H
 
 #include <Arduino.h>
 #include <SPI.h>
-
-
-#include <Arduino.h>
 
 /**
 * define SPI pins 
@@ -190,7 +187,10 @@
 #define BYTES_IN_RXFIFO 0x3F  //max bytes in RXfifo
 
 /**
-* Most modules come with 26Mhz crystal
+* Crystal frequency. Most CC1101 modules use a 26 MHz crystal.
+* Some modules (e.g. certain eBay/AliExpress variants) use 27 MHz.
+* Override at compile time if needed:
+*   -DCC1101_CRYSTAL_FREQUENCY=27000000ul
 */
 #ifndef CC1101_CRYSTAL_FREQUENCY
 #define CC1101_CRYSTAL_FREQUENCY 26000000ul
@@ -228,7 +228,7 @@ public:
     bw_650kHz = 0b00010000,
     bw_812kHz = 0b00000000
   };
-  void setRXBandWitdth(rx_BandWidth bw);
+  void setRXBandwidth(rx_BandWidth bw);
   enum Modulation : uint8_t {
     mod_2FSK = 0b00000000,
     mod_GFSK = 0b00010000,

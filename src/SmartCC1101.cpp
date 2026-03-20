@@ -239,7 +239,7 @@ void SmartCC1101::init(void) {
   // works with SPI_MODE0, SPI_MODE2, SPI_MODE3
   mySPISettings = SPISettings(4000000, MSBFIRST, SPI_MODE0);
 #else
-#warn SPI Transactions are not supported on this board
+#warning SPI Transactions are not supported on this board
 #endif
 
   pinMode(SCK_PIN, OUTPUT);
@@ -485,7 +485,7 @@ void SmartCC1101::setDCFilterOff(bool dcf) {
 * bw_812kHz = 0b00000000
 * @return none
 */
-void SmartCC1101::setRXBandWitdth(rx_BandWidth bw) {
+void SmartCC1101::setRXBandwidth(rx_BandWidth bw) {
 
   setIDLEState();
   uint8_t state = readRegister(CC1101_MDMCFG4);
