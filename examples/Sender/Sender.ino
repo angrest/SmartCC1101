@@ -58,8 +58,14 @@ void setup() {
 
 void loop() {
   // sendData() wakes the CC1101 automatically — no explicit wakeup call needed.
-  Smartcc1101.sendData("Hello world!");
-  Serial.println(F("Sent: Hello world!"));
+  if (Smartcc1101.sendData("Hello world!")) {
+    Serial.println(F("Sent: Hello world!"));
+  } else {
+    Serial.print(F("[E] Send failed, error code: "));
+    Serial.println(Smartcc1101.getLastError());
+    Smartcc1101.clearError();
+    // Optional recovery: Smartcc1101.init();
+  }
 
   // Put the CC1101 into power-down mode (~200 nA) between transmissions.
   // In a real low-power application, also put the MCU to sleep here

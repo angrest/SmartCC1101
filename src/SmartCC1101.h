@@ -208,6 +208,20 @@ public:
             uint8_t copiPin = COPI_PIN,
             SPIClass& spi   = SPI);
   bool getCC1101(void);
+
+  /** Error codes returned by getLastError(). */
+  enum ErrorCode : uint8_t {
+    err_NONE = 0,
+    err_SPI_TIMEOUT,    ///< MISO did not go low — check wiring/power supply
+    err_IDLE_TIMEOUT,   ///< chip did not reach IDLE within 100 ms
+    err_TX_TIMEOUT,     ///< TX did not complete within 500 ms
+    err_CALIB_TIMEOUT,  ///< frequency synthesizer calibration did not finish within 50 ms
+  };
+  /** Returns the last error set by a failed operation. */
+  ErrorCode getLastError(void);
+  /** Clears the error flag so the next operation starts fresh. */
+  void clearError(void);
+
   /** Put CC1101 into power-down mode (~200 nA). Wakeup is automatic on the
    *  next sendData(), setRX(), or receiveData() call. */
   void sleep(void);
@@ -300,17 +314,17 @@ public:
   void setManchester(bool menc);
   void setSymbolRate(uint32_t symbolRate);
 
-  void sendData(const char *txBuffer);
-  void sendData(const uint8_t *txBuffer, uint8_t size);
+  bool sendData(const char *txBuffer);
+  bool sendData(const uint8_t *txBuffer, uint8_t size);
 
   int8_t getRSSI(void);
   bool checkCRC(void);
   uint8_t getLQI(void);
-  void setRX(void);
+  bool setRX(void);
   uint8_t receiveData(uint8_t *rxBuffer);
 
 private:
-  void waitCIPO(void);
+  bool waitCIPO(void);
   void chipSelect(void);
   void chipDeselect(void);
   uint8_t readRegister(uint8_t addr);
@@ -331,7 +345,7 @@ private:
   void writeBurstRegister(uint8_t addr, const uint8_t *buffer, uint8_t num);
   void writeBurstRegister_P(uint8_t addr, const uint8_t *buffer, uint8_t num);
   uint8_t strobe(uint8_t strobe);
-  void setIDLEState(void);
+  bool setIDLEState(void);
   void onWakeup(void);
   void reset(void);
   void configCC1101(void);
@@ -349,6 +363,7 @@ private:
   uint8_t frend0 = 0x10;  // default: PA index 0, set to 0x11 for ASK/OOK
   int8_t pa = 12;
   bool sleepState = false;
+  ErrorCode lastError_ = err_NONE;
   uint32_t cfreq = 868350000;
   bool crc;
   uint8_t lqi;

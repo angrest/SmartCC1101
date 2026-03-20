@@ -58,13 +58,39 @@ uint8_t const PROGMEM PA_TABLE_915[10]{ 0x03, 0x0E, 0x1E, 0x27, 0x38, 0x8E, 0x84
 */
 
 /**
-* Wait CIPO pin going low.
-* @param none.
-* @return none.
+* Wait for CIPO pin to go low, indicating the CC1101 is ready for SPI.
+* Per the CC1101 datasheet, MISO goes low once the chip is ready after CSN
+* is asserted. Must be called after chipSelect().
+*
+* @return true if CIPO went low within 10 ms, false on timeout.
+*         On timeout, chipDeselect() is called, err_SPI_TIMEOUT is set,
+*         and the SPI bus is released.
 */
-void SmartCC1101::waitCIPO(void) {
+bool SmartCC1101::waitCIPO(void) {
+  uint32_t start = millis();
   while (digitalRead(cipoPin_) > 0) {
+    if (millis() - start > 10) {
+      chipDeselect();
+      lastError_ = err_SPI_TIMEOUT;
+      return false;
+    }
   }
+  return true;
+}
+
+/**
+* Returns the last error code set by a failed operation.
+* @return ErrorCode
+*/
+SmartCC1101::ErrorCode SmartCC1101::getLastError(void) {
+  return lastError_;
+}
+
+/**
+* Clears the error flag so the next operation starts fresh.
+*/
+void SmartCC1101::clearError(void) {
+  lastError_ = err_NONE;
 }
 
 /**
@@ -103,7 +129,7 @@ void SmartCC1101::chipDeselect(void) {
 uint8_t SmartCC1101::readRegister(uint8_t addr) {
 
   chipSelect();
-  waitCIPO();
+  if (!waitCIPO()) return 0;  // CS released, error already set
   spi_->transfer(addr | READ_SINGLE);
   uint8_t value = spi_->transfer(0);
   chipDeselect();
@@ -120,7 +146,7 @@ uint8_t SmartCC1101::readRegister(uint8_t addr) {
 void SmartCC1101::readBurstRegister(uint8_t addr, uint8_t *buffer, uint8_t num) {
 
   chipSelect();
-  waitCIPO();
+  if (!waitCIPO()) return;
   spi_->transfer(addr | READ_BURST);
   for (uint8_t i = 0; i < num; i++) {
     buffer[i] = spi_->transfer(0);
@@ -136,7 +162,7 @@ void SmartCC1101::readBurstRegister(uint8_t addr, uint8_t *buffer, uint8_t num) 
 uint8_t SmartCC1101::readStatusRegister(uint8_t addr) {
 
   chipSelect();
-  waitCIPO();
+  if (!waitCIPO()) return 0;
   spi_->transfer(addr | READ_BURST);
   uint8_t value = spi_->transfer(0);
   chipDeselect();
@@ -152,7 +178,7 @@ uint8_t SmartCC1101::readStatusRegister(uint8_t addr) {
 void SmartCC1101::writeRegister(uint8_t addr, uint8_t value) {
 
   chipSelect();
-  waitCIPO();
+  if (!waitCIPO()) return;
   spi_->transfer(addr);
   spi_->transfer(value);
   chipDeselect();
@@ -168,7 +194,7 @@ void SmartCC1101::writeRegister(uint8_t addr, uint8_t value) {
 void SmartCC1101::writeBurstRegister(uint8_t addr, const uint8_t *buffer, const uint8_t num) {
 
   chipSelect();
-  waitCIPO();
+  if (!waitCIPO()) return;
   spi_->transfer(addr | WRITE_BURST);
   for (uint8_t i = 0; i < num; i++) {
     spi_->transfer(buffer[i]);
@@ -186,17 +212,18 @@ void SmartCC1101::writeBurstRegister(uint8_t addr, const uint8_t *buffer, const 
 void SmartCC1101::writeBurstRegister_P(uint8_t addr, const uint8_t *buffer, uint8_t num) {
 
   chipSelect();
-  waitCIPO();
+  if (!waitCIPO()) return;
   spi_->transfer(addr | WRITE_BURST);
   for (uint8_t i = 0; i < num; i++) {
     spi_->transfer(pgm_read_byte(&buffer[i]));
   }
   chipDeselect();
 }
+
 uint8_t SmartCC1101::strobe(uint8_t strobe) {
 
   chipSelect();
-  waitCIPO();
+  if (!waitCIPO()) return 0;
   uint8_t value = spi_->transfer(strobe);
   chipDeselect();
   return value;
@@ -267,28 +294,37 @@ void SmartCC1101::reset(void) {
   chipDeselect();
   delay(1);
   chipSelect();
-  waitCIPO();
+  if (!waitCIPO()) return;  // CS released by waitCIPO on failure
 
   spi_->transfer(CC1101_SRES);
 
-  waitCIPO();
+  if (!waitCIPO()) return;
   chipDeselect();
 }
 
 /**
 * Set CC1101 to IDLE state.
-* @param none
-* @return none
+* @return true if IDLE was reached, false on timeout (err_IDLE_TIMEOUT set)
+*         or if a prior SPI error is already pending.
 */
-void SmartCC1101::setIDLEState(void) {
+bool SmartCC1101::setIDLEState(void) {
 
-  if (getState() == state_IDLE)  // return immediately if already idle
-    return;
+  chipState state = getState();
+  if (lastError_ != err_NONE) return false;
+  if (state == state_IDLE) return true;
+
   strobe(CC1101_SIDLE);
-  while (getState() != state_IDLE) {
-  }
 
-  ;  // wait until state is IDLE
+  uint32_t start = millis();
+  while (true) {
+    state = getState();
+    if (lastError_ != err_NONE) return false;
+    if (state == state_IDLE) return true;
+    if (millis() - start > 100) {
+      lastError_ = err_IDLE_TIMEOUT;
+      return false;
+    }
+  }
 }
 
 /**
@@ -332,16 +368,20 @@ void SmartCC1101::sleep(void) {
 */
 SmartCC1101::chipState SmartCC1101::getState(void) {
 
+  // The CC1101 datasheet recommends reading the status byte until two
+  // consecutive reads agree, as the chip may still be transitioning.
+  // Cap at 10 iterations: if SPI is broken all reads return consistently
+  // (0x00 or 0xFF), so this exits quickly rather than hanging forever.
   uint8_t old_state = strobe(CC1101_SNOP);
-  // we read until same result is read twice
-  while (1) {
+  for (uint8_t i = 0; i < 10; i++) {
     uint8_t state = strobe(CC1101_SNOP);
     if (state == old_state)
-      break;
+      return static_cast<chipState>((state >> 4) & 0b00111);
     old_state = state;
   }
-  chipState rc = static_cast<chipState>((old_state >> 4) & 0b00111);
-  return rc;
+  // Could not obtain a stable reading — SPI likely broken.
+  lastError_ = err_SPI_TIMEOUT;
+  return static_cast<chipState>((old_state >> 4) & 0b00111);
 }
 
 /**
@@ -962,101 +1002,119 @@ void SmartCC1101::setDeviation(uint32_t deviation) {
 * Send data
 * @param txBuffer zero-terminated character array to send, no more than 61 bytes.
 *                 Must not be NULL.
-* @return none
+* @return true on success, false on error (check getLastError() for details)
 */
-void SmartCC1101::sendData(const char *txBuffer) {
-  sendData((uint8_t *)txBuffer, (uint8_t)strlen(txBuffer));
+bool SmartCC1101::sendData(const char *txBuffer) {
+  return sendData(reinterpret_cast<const uint8_t *>(txBuffer), (uint8_t)strlen(txBuffer));
 }
 
 /**
 * Send data
 * @param txBuffer Data array to send
-* @param size Number of data to send, no more than 61
-* @return none
+* @param size Number of bytes to send, no more than 61
+* @return true on success, false on error (check getLastError() for details)
 */
-void SmartCC1101::sendData(const uint8_t *txBuffer, uint8_t size) {
-
-  uint8_t state;
+bool SmartCC1101::sendData(const uint8_t *txBuffer, uint8_t size) {
 
   if (sleepState)
     onWakeup();
 
-  // limit to 61 characters
   size = (size <= 61) ? size : 61;
 
-  setIDLEState();
+  if (!setIDLEState()) return false;
 
   writeRegister(CC1101_TXFIFO, size);
+  writeBurstRegister(CC1101_TXFIFO, txBuffer, size);
+  strobe(CC1101_STX);
 
-  writeBurstRegister(CC1101_TXFIFO, txBuffer, size);  //write data to send
-  strobe(CC1101_STX);                                 //start send
-
-  // Source Datasheet p 58, ch 22.1
-  state = getState();
-
-  while ((state == state_CALIBRATE) || (state == state_SETTLING)) {
+  // Wait for calibration/settling to finish (typically < 1 ms).
+  // Datasheet p.58, ch.22.1: chip passes through CALIBRATE and SETTLING
+  // before entering TX.
+  uint32_t start = millis();
+  chipState state = getState();
+  while (state == state_CALIBRATE || state == state_SETTLING) {
+    if (lastError_ != err_NONE) return false;
+    if (millis() - start > 50) {
+      lastError_ = err_CALIB_TIMEOUT;
+      strobe(CC1101_SIDLE);
+      return false;
+    }
     state = getState();
   }
 
-  // Wait for CC1101 going to idle state
-  while (1) {
-    state = getState();
-    if (state == state_IDLE) break;
-
+  // Wait for TX to complete — chip returns to IDLE when done.
+  // Worst case: 61 bytes at 4.8 kBaud ≈ 120 ms; 500 ms covers all rates.
+  start = millis();
+  while (state != state_IDLE) {
+    if (lastError_ != err_NONE) return false;
+    if (millis() - start > 500) {
+      lastError_ = err_TX_TIMEOUT;
+      strobe(CC1101_SIDLE);
+      return false;
+    }
     delay(2);
+    state = getState();
   }
 
-  strobe(CC1101_SFTX);  //flush TXfifo
+  strobe(CC1101_SFTX);
+  return true;
 }
 
 /**
-* set CC1101 to receive state
-* @param none
-* @return none
+* Set CC1101 to receive mode.
+* @return true on success, false on error (check getLastError() for details)
 */
-void SmartCC1101::setRX(void) {
+bool SmartCC1101::setRX(void) {
 
   if (sleepState)
     onWakeup();
 
-  uint8_t state = getState();
+  chipState state = getState();
+  if (lastError_ != err_NONE) return false;
 
-  // wait until calibration or settling finishes
-  while ((state == state_CALIBRATE) || (state == state_SETTLING)) {
+  // Wait for any ongoing calibration or settling to finish.
+  uint32_t start = millis();
+  while (state == state_CALIBRATE || state == state_SETTLING) {
+    if (lastError_ != err_NONE) return false;
+    if (millis() - start > 50) {
+      lastError_ = err_CALIB_TIMEOUT;
+      return false;
+    }
     state = getState();
   }
 
-  // if already in RX return immediately
-  if (state == state_RX)
-    return;
+  if (state == state_RX) return true;
 
-  // reset values from last receive
   rssi = 0;
   lqi = 0;
   crc = false;
 
-  // RXFIFO overflow: must flush before we can continue
-  if (state == state_RXFIFO_OVERFLOW) {
+  // Flush FIFOs in error states before attempting to go to IDLE.
+  if (state == state_RXFIFO_OVERFLOW)
     strobe(CC1101_SFRX);
-    setIDLEState();
-  }
-
-  // Handle TX buffer underflow here directly
-  if (state == state_TXFIFO_UNDERFLOW)
+  else if (state == state_TXFIFO_UNDERFLOW)
     strobe(CC1101_SFTX);
 
-  // All other states are unexpected, force to IDLE first
-  if (state != 0) {
-    setIDLEState();
+  // Force IDLE for all non-IDLE states (including after FIFO flush above).
+  if (state != state_IDLE) {
+    if (!setIDLEState()) return false;
   }
 
-  strobe(CC1101_SRX);  //start receive (autcal on IDLE->RX
+  strobe(CC1101_SRX);
 
-  // Check - Source Datasheet p 58, ch 22.1
+  // Wait for calibration triggered by the IDLE→RX transition.
+  start = millis();
   state = getState();
-  while ((state == state_CALIBRATE) || (state == state_SETTLING)) {
+  while (state == state_CALIBRATE || state == state_SETTLING) {
+    if (lastError_ != err_NONE) return false;
+    if (millis() - start > 50) {
+      lastError_ = err_CALIB_TIMEOUT;
+      return false;
+    }
     state = getState();
   }
+
+  return true;
 }
 
 /**

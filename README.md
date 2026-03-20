@@ -123,13 +123,21 @@ See `examples/Sender` and `examples/Receiver` for full examples.
 ### Send / Receive
 | Function | Description |
 |---|---|
-| `sendData(const char*)` | Send null-terminated string (max. 61 bytes, must not be NULL) |
-| `sendData(const uint8_t*, uint8_t)` | Send byte array |
-| `setRX()` | Switch to RX mode |
+| `sendData(const char*)` | Send null-terminated string (max. 61 bytes, must not be NULL). Returns `false` on error. |
+| `sendData(const uint8_t*, uint8_t)` | Send byte array. Returns `false` on error. |
+| `setRX()` | Switch to RX mode. Returns `false` on error. |
 | `receiveData(uint8_t*)` | Read received data. Buffer must be ≥ 61 bytes. Returns number of bytes received. |
 | `getRSSI()` | RSSI in dBm (typically -140 to 0) |
 | `getLQI()` | Link Quality Indicator 0–127 (lower is better) |
 | `checkCRC()` | `true` if last received packet had valid CRC |
+
+### Error Handling
+| Function | Description |
+|---|---|
+| `getLastError()` | Returns the last `ErrorCode`: `err_NONE`, `err_SPI_TIMEOUT`, `err_IDLE_TIMEOUT`, `err_TX_TIMEOUT`, `err_CALIB_TIMEOUT` |
+| `clearError()` | Clears the error flag before retrying |
+
+`sendData()` and `setRX()` return `false` on failure and set an error code. The library does **not** attempt automatic recovery — call `init()` to reset the chip, or `clearError()` if the fault was transient. Passing `return false` through discarded return values is valid C++ and requires no changes to existing code.
 
 ### Power Management
 | Function | Description |

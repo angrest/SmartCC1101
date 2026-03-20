@@ -55,7 +55,11 @@ void setup() {
   Smartcc1101.setCarrierFrequency(868350000);  // 868.35 MHz
   Smartcc1101.setCRCCheck(true);
 
-  Smartcc1101.setRX();  // start listening
+  if (!Smartcc1101.setRX()) {
+    Serial.print(F("[E] setRX failed, error code: "));
+    Serial.println(Smartcc1101.getLastError());
+    while (1);
+  }
   Serial.println(F("[I] Listening on 868.35 MHz..."));
 }
 
@@ -76,5 +80,9 @@ void loop() {
   Serial.print(F("): "));
   Serial.println((char *)buffer);
 
-  Smartcc1101.setRX();  // go back to receive mode for next packet
+  if (!Smartcc1101.setRX()) {
+    Serial.print(F("[E] setRX failed, error code: "));
+    Serial.println(Smartcc1101.getLastError());
+    Smartcc1101.clearError();
+  }
 }
