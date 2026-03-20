@@ -58,13 +58,12 @@ uint8_t const PROGMEM PA_TABLE_915[10]{ 0x03, 0x0E, 0x1E, 0x27, 0x38, 0x8E, 0x84
 * @return none.
 */
 void SmartCC1101::setDelayFunction(delayfunction delayF) {
-
   delayFunc = delayF;
 }
 
 /**
-* Call custom delay function set by setDelayFunction.
-* @param none
+* Call custom delay function set by setDelayFunction, or fall back to delay().
+* @param ms Milliseconds to wait
 * @return none
 */
 void SmartCC1101::smartDelay(uint8_t ms) {
@@ -172,7 +171,7 @@ uint8_t SmartCC1101::readStatusRegister(uint8_t addr) {
 * @param value register value.
 * @return none
 */
-void SmartCC1101::writeRegister(uint8_t addr, uint8_t value, [[maybe_unused]] const char *str) {
+void SmartCC1101::writeRegister(uint8_t addr, uint8_t value) {
 
   chipSelect();
   waitCIPO();
@@ -188,7 +187,7 @@ void SmartCC1101::writeRegister(uint8_t addr, uint8_t value, [[maybe_unused]] co
 * @param num Number to write.
 * @return none
 */
-void SmartCC1101::writeBurstRegister(uint8_t addr, const uint8_t *buffer, const uint8_t num, [[maybe_unused]] const char *str) {
+void SmartCC1101::writeBurstRegister(uint8_t addr, const uint8_t *buffer, const uint8_t num) {
 
   chipSelect();
   waitCIPO();
@@ -200,10 +199,22 @@ void SmartCC1101::writeBurstRegister(uint8_t addr, const uint8_t *buffer, const 
 }
 
 /**
-* CC1101 Strobe
-* @param strobe Command word
+* Write specified number of bytes to CC1101 register in burst mode, reading from PROGMEM.
+* @param addr Register address.
+* @param buffer PROGMEM array of values to write.
+* @param num Number to write.
 * @return none
 */
+void SmartCC1101::writeBurstRegister_P(uint8_t addr, const uint8_t *buffer, uint8_t num) {
+
+  chipSelect();
+  waitCIPO();
+  SPI.transfer(addr | WRITE_BURST);
+  for (uint8_t i = 0; i < num; i++) {
+    SPI.transfer(pgm_read_byte(&buffer[i]));
+  }
+  chipDeselect();
+}
 uint8_t SmartCC1101::strobe(uint8_t strobe) {
 
   chipSelect();
@@ -329,42 +340,72 @@ SmartCC1101::chipState SmartCC1101::getState(void) {
 }
 
 /**
+* Full register configuration table for burst write.
+* Covers CC1101 config registers 0x00 (IOCFG2) through 0x26 (FSCAL0).
+* Registers not explicitly configured carry their datasheet reset values.
+* @note onWakeup() writes AGCTEST (0x2B) and TEST0 (0x2E) separately
+*       as these are reset on sleep and need to be refreshed on wakeup.
+* @note These values are optimized for 868 MHz / 100 kBaud / 2-FSK operation.
+*       For 433 MHz, band-specific registers (FSCTRL1, FOCCFG, BSCFG, AGCCTRLx,
+*       FREND1) should be overridden after init() using SmartRF Studio values.
+*       See header file for details.
+*/
+static const uint8_t CC1101_CONFIG_REGS[] PROGMEM = {
+  0x29,  // 0x00 IOCFG2   - reset value
+  0x2E,  // 0x01 IOCFG1   - reset value
+  0x3F,  // 0x02 IOCFG0   - reset value
+  0x07,  // 0x03 FIFOTHR  - reset value
+  0xD3,  // 0x04 SYNC1    - reset value
+  0x91,  // 0x05 SYNC0    - reset value
+  0x3D,  // 0x06 PKTLEN   - 61 bytes max payload
+  0x0C,  // 0x07 PKTCTRL1 - PQT=0, append status, autoflush on CRC error
+  0x45,  // 0x08 PKTCTRL0 - reset value (variable length, CRC on, no whitening)
+  0x00,  // 0x09 ADDR     - reset value
+  0x00,  // 0x0A CHANNR   - reset value
+  0x08,  // 0x0B FSCTRL1  - IF frequency, optimized for 868 MHz / 100 kBaud
+  0x00,  // 0x0C FSCTRL0  - reset value
+  0x1E,  // 0x0D FREQ2    - reset value, overwritten by setCarrierFrequency()
+  0xC4,  // 0x0E FREQ1    - reset value, overwritten by setCarrierFrequency()
+  0xEC,  // 0x0F FREQ0    - reset value, overwritten by setCarrierFrequency()
+  0x50,  // 0x10 MDMCFG4  - channel BW 325 kHz (matches 100 kBaud)
+  0x22,  // 0x11 MDMCFG3  - reset value, overwritten by setSymbolRate()
+  0x0A,  // 0x12 MDMCFG2  - DC filter on, 2-FSK, Manchester on, 16/16 sync
+  0x02,  // 0x13 MDMCFG1  - 2 preamble bytes, channel spacing exponent 2
+  0xF8,  // 0x14 MDMCFG0  - reset value
+  0x47,  // 0x15 DEVIATN  - reset value, overwritten by setDeviation()
+  0x07,  // 0x16 MCSM2    - reset value
+  0x30,  // 0x17 MCSM1    - reset value
+  0x18,  // 0x18 MCSM0    - autocal on IDLE→RX, PO_TIMEOUT=2
+  0x1D,  // 0x19 FOCCFG   - frequency offset compensation
+  0x1C,  // 0x1A BSCFG    - bit sync configuration
+  0xC7,  // 0x1B AGCCTRL2 - AGC control
+  0x00,  // 0x1C AGCCTRL1 - AGC control
+  0xB2,  // 0x1D AGCCTRL0 - AGC control
+  0x87,  // 0x1E WOREVT1  - reset value
+  0x6B,  // 0x1F WOREVT0  - reset value
+  0xFB,  // 0x20 WORCTRL  - wake on radio control
+  0xB6,  // 0x21 FREND1   - front end RX configuration
+  0x10,  // 0x22 FREND0   - front end TX (PA index 0), updated by setModulation()
+  0xEA,  // 0x23 FSCAL3   - frequency synthesizer calibration
+  0x2A,  // 0x24 FSCAL2   - frequency synthesizer calibration
+  0x00,  // 0x25 FSCAL1   - frequency synthesizer calibration
+  0x1F,  // 0x26 FSCAL0   - frequency synthesizer calibration
+};
+
+/**
 * CC1101 basic register config, refer to e.g. Smart RF Studio
 * @param none
 * @return none
 */
 void SmartCC1101::configCC1101(void) {
 
-  reset();
+  // Write all config registers 0x00-0x26 in a single burst from PROGMEM
+  writeBurstRegister_P(CC1101_IOCFG2, CC1101_CONFIG_REGS, sizeof(CC1101_CONFIG_REGS));
 
-  writeRegister(CC1101_PKTLEN, 0x3d);          // 61 Bytes - max possible TX length
-  writeRegister(CC1101_PKTCTRL1, 0b00001100);  // PQT=0, append status, FIFO autoflush on CRC error
-  writeRegister(CC1101_MDMCFG4, 0b00000000);   // Max Channel BW 812.5 Khz
-  writeRegister(CC1101_MDMCFG2, 0b00001010);   // DC Filter enable, 2-FSK, Manch Enc, 16/16 Sync words detected
-  writeRegister(CC1101_MDMCFG1, 0b00000010);   // 2 Preamble bytes, exponent 2 in channel spacing
-  writeRegister(CC1101_MCSM0, 0b00011000);     // Autocal when IDLE to RX, PO_TIMEOUT=2
-
-  // Optized for sensitivty @835.35 Mhz, 100kb symbol rate
-  writeRegister(CC1101_FSCTRL1, 0x08);  //Frequency Synthesizer Control
-  writeRegister(CC1101_FSCTRL0, 0x00);  //Frequency Synthesizer Control
-
-  writeRegister(CC1101_FOCCFG, 0x1D);    //Frequency Offset Compensation Configuration
-  writeRegister(CC1101_BSCFG, 0x1C);     //Bit Synchronization Configuration
-  writeRegister(CC1101_AGCCTRL2, 0xC7);  //AGC Control
-  writeRegister(CC1101_AGCCTRL1, 0x00);  //AGC Control
-  writeRegister(CC1101_AGCCTRL0, 0xB2);  //AGC Control
-  writeRegister(CC1101_WORCTRL, 0xFB);   //Wake On Radio Control
-  writeRegister(CC1101_FREND1, 0xB6);    //Front End RX Configuration
-  writeRegister(CC1101_FREND0, 0x10);    //Front End TX Configuration
-  writeRegister(CC1101_FSCAL3, 0xEA);    //Frequency Synthesizer Calibration
-  writeRegister(CC1101_FSCAL2, 0x2A);    //Frequency Synthesizer Calibration
-  writeRegister(CC1101_FSCAL1, 0x00);    //Frequency Synthesizer Calibration
-  writeRegister(CC1101_FSCAL0, 0x1F);    //Frequency Synthesizer Calibration
-  writeRegister(CC1101_TEST0, 0x09);     //Various Test Settings
-
-  // the easiest way to have settings managed cosnsistently and onyly change in one place
+  // Registers that are cleared on sleep are handled by onWakeup()
   onWakeup();
 
+  // Frequency registers 0x0D-0x0F are written by setCarrierFrequency()
   setCarrierFrequency(cfreq);
 }
 
@@ -379,6 +420,7 @@ void SmartCC1101::onWakeup(void) {
   sleepState = false;
   writeRegister(CC1101_AGCTEST, 0x3F);  //AGC Test
   writeRegister(CC1101_TEST0, 0x09);    //Various Test Settings
+  writeRegister(CC1101_FREND0, frend0); //Restore TX front end config (reset during sleep)
   // index 0 is preserved in PATABLE, ASK/OOK use index 1
   if (modulation == mod_ASKOOK)
     setPA(pa);
@@ -391,18 +433,13 @@ void SmartCC1101::onWakeup(void) {
 * @return true/false
 */
 bool SmartCC1101::getCC1101(void) {
-
   uint8_t version = readStatusRegister(CC1101_VERSION);
   /**
 * @note All chips at hand return 4, but this is bound to change
 * so, we accept all values which are nonzero and not 0xFF,
 * the latter is returned when the connection is broken (e.g. chip not connected).
 */
-  if ((version > 0) && (version < 0xFF)) {
-    return true;
-  } else {
-    return false;
-  }
+  return (version > 0) && (version < 0xFF);
 }
 
 /**
@@ -458,132 +495,121 @@ void SmartCC1101::setRXBandWitdth(rx_BandWidth bw) {
 }
 
 /**
+* Select PA table index for a given power level.
+* @param pa Desired power in dBm
+* @param extended true for 10-level tables (868/915 MHz), false for 8-level tables (315/433 MHz)
+* @return PA table index
+*/
+static uint8_t getPAIndex(int8_t pa, bool extended) {
+  if (pa <= -30) return 0;
+  if (pa <= -20) return 1;
+  if (pa <= -15) return 2;
+  if (pa <= -10) return 3;
+  if (!extended) {
+    if (pa <= 0) return 4;
+    if (pa <= 5) return 5;
+    if (pa <= 7) return 6;
+    return 7;
+  }
+  // extended (868/915 MHz) has two extra levels at the top
+  if (pa <= -6) return 4;
+  if (pa <= 0)  return 5;
+  if (pa <= 5)  return 6;
+  if (pa <= 7)  return 7;
+  if (pa <= 10) return 8;
+  return 9;
+}
+
+/**
 * Set CC1101 PA Power. Not persisted during sleep, except index 0
 * For ASK/OOK, PA needs to be set again after sleep
 * @param PA Power in dB
 * @return none
 */
 void SmartCC1101::setPA(int8_t p) {
-  uint8_t PA_TABLE[8]{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-
-  int8_t a = 0;
-  uint8_t index = 0;
+  uint8_t a = 0;
   pa = p;
 
   if (cfreq >= 300000000 && cfreq <= 348000000) {
-    if (pa <= -30) {
-      index = 0;
-    } else if (pa > -30 && pa <= -20) {
-      index = 1;
-    } else if (pa > -20 && pa <= -15) {
-      index = 2;
-    } else if (pa > -15 && pa <= -10) {
-      index = 3;
-    } else if (pa > -10 && pa <= 0) {
-      index = 4;
-    } else if (pa > 0 && pa <= 5) {
-      index = 5;
-    } else if (pa > 5 && pa <= 7) {
-      index = 6;
-    } else if (pa > 7) {
-      index = 7;
-    }
-    a = pgm_read_byte(&PA_TABLE_315[index]);
+    a = pgm_read_byte(&PA_TABLE_315[getPAIndex(pa, false)]);
   } else if (cfreq >= 378000000 && cfreq <= 464000000) {
-    if (pa <= -30) {
-      index = 0;
-    } else if (pa > -30 && pa <= -20) {
-      index = 1;
-    } else if (pa > -20 && pa <= -15) {
-      index = 2;
-    } else if (pa > -15 && pa <= -10) {
-      index = 3;
-    } else if (pa > -10 && pa <= 0) {
-      index = 4;
-    } else if (pa > 0 && pa <= 5) {
-      index = 5;
-    } else if (pa > 5 && pa <= 7) {
-      index = 6;
-    } else if (pa > 7) {
-      index = 7;
-    }
-    a = pgm_read_byte(&PA_TABLE_433[index]);
-  } else if (cfreq >= 779000000 && cfreq < 900000000) {
-    if (pa <= -30) {
-      index = 0;
-    } else if (pa > -30 && pa <= -20) {
-      index = 1;
-    } else if (pa > -20 && pa <= -15) {
-      index = 2;
-    } else if (pa > -15 && pa <= -10) {
-      index = 3;
-    } else if (pa > -10 && pa <= -6) {
-      index = 4;
-    } else if (pa > -6 && pa <= 0) {
-      index = 5;
-    } else if (pa > 0 && pa <= 5) {
-      index = 6;
-    } else if (pa > 5 && pa <= 7) {
-      index = 7;
-    } else if (pa > 7 && pa <= 10) {
-      index = 8;
-    } else if (pa > 10) {
-      index = 9;
-    }
-    a = pgm_read_byte(&PA_TABLE_868[index]);
-  } else if (cfreq >= 900000000 && cfreq <= 928000000) {
-    if (pa <= -30) {
-      index = 0;
-    } else if (pa > -30 && pa <= -20) {
-      index = 1;
-    } else if (pa > -20 && pa <= -15) {
-      index = 2;
-    } else if (pa > -15 && pa <= -10) {
-      index = 3;
-    } else if (pa > -10 && pa <= -6) {
-      index = 4;
-    } else if (pa > -6 && pa <= 0) {
-      index = 5;
-    } else if (pa > 0 && pa <= 5) {
-      index = 6;
-    } else if (pa > 5 && pa <= 7) {
-      index = 7;
-    } else if (pa > 7 && pa <= 10) {
-      index = 8;
-    } else if (pa > 10) {
-      index = 9;
-    }
-    a = pgm_read_byte(&PA_TABLE_915[index]);
+    a = pgm_read_byte(&PA_TABLE_433[getPAIndex(pa, false)]);
+  } else if (cfreq >= 779000000 && cfreq <= 900000000) {
+    a = pgm_read_byte(&PA_TABLE_868[getPAIndex(pa, true)]);
+  } else if (cfreq > 900000000 && cfreq <= 928000000) {
+    a = pgm_read_byte(&PA_TABLE_915[getPAIndex(pa, true)]);
   }
 
   if (modulation == mod_ASKOOK) {
-    PA_TABLE[1] = a;  // PA power for sending a '1'
+    // For ASK/OOK: index 0 = power off ('0'), index 1 = transmit power ('1')
+    uint8_t PA_TABLE[2]{ 0x00, a };
+    writeBurstRegister(CC1101_PATABLE, PA_TABLE, 2);
   } else {
-    PA_TABLE[0] = a;  // PA Power
+    // For all other modes: only index 0 is used
+    writeBurstRegister(CC1101_PATABLE, &a, 1);
   }
-  writeBurstRegister(CC1101_PATABLE, PA_TABLE, 8);
 }
 
 /**
+* Band-specific register patch for 433 MHz operation.
+* Applied automatically by setCarrierFrequency() when switching to the 433 MHz band.
+* Values derived from CC1101 datasheet formulas and TI application notes.
+* Format: pairs of {register address, value}.
+*/
+static const uint8_t CC1101_BAND_433[] PROGMEM = {
+  CC1101_FSCTRL1,  0x06,  // IF = 152 kHz (formula: FREQ_IF * Fxtal / 2^10)
+  CC1101_FOCCFG,   0x16,  // Frequency offset compensation (formula)
+  CC1101_BSCFG,    0x6C,  // Bit synchronization (reset value, suited for 433)
+  CC1101_AGCCTRL2, 0x43,  // AGC: DVGA=-6dB, TARGET=33dB (TI AN)
+  CC1101_AGCCTRL1, 0x40,  // AGC control (reset value)
+  CC1101_AGCCTRL0, 0x91,  // AGC control (reset value)
+  CC1101_FREND1,   0x56,  // Front end RX (reset value, TI-recommended for 433)
+};
+
+/**
+* Band-specific register patch for 868/915 MHz operation.
+* Applied automatically by setCarrierFrequency() when switching to the 868/915 MHz band.
+* Values optimized for 868 MHz / 100 kBaud / 2-FSK per SmartRF Studio.
+*/
+static const uint8_t CC1101_BAND_868[] PROGMEM = {
+  CC1101_FSCTRL1,  0x08,  // IF = 203 kHz
+  CC1101_FOCCFG,   0x1D,  // Frequency offset compensation
+  CC1101_BSCFG,    0x1C,  // Bit synchronization
+  CC1101_AGCCTRL2, 0xC7,  // AGC control
+  CC1101_AGCCTRL1, 0x00,  // AGC control
+  CC1101_AGCCTRL0, 0xB2,  // AGC control
+  CC1101_FREND1,   0xB6,  // Front end RX configuration
+};
+
+/**
 * Set the carrier frequency.
-* @param Frequency in Hz
+* Automatically applies band-specific register settings when crossing band boundaries.
+* @param frequency Frequency in Hz. Supported bands: 300-348, 387-464, 779-928 MHz.
 * @return none
 */
 void SmartCC1101::setCarrierFrequency(uint32_t frequency) {
+
+  // Detect band change and apply band-specific patch registers
+  bool was433 = (cfreq >= 378000000 && cfreq <= 464000000);
+  bool is433  = (frequency >= 378000000 && frequency <= 464000000);
+
+  if (was433 != is433) {
+    const uint8_t *patch = is433 ? CC1101_BAND_433 : CC1101_BAND_868;
+    uint8_t len = is433 ? sizeof(CC1101_BAND_433) : sizeof(CC1101_BAND_868);
+    // patch table is address/value pairs
+    for (uint8_t i = 0; i < len; i += 2) {
+      writeRegister(pgm_read_byte(&patch[i]), pgm_read_byte(&patch[i+1]));
+    }
+  }
+
   // Calculate the frequency register value using 64-bit arithmetic to prevent overflow
   uint32_t frequencyRegisterValue = ((uint64_t)frequency << 16) / CC1101_CRYSTAL_FREQUENCY;
 
-  // Extract the individual bytes for the frequency registers
-  uint8_t frequencyHigh = (frequencyRegisterValue >> 16) & 0xFF;  // High byte (FREQ2)
-  uint8_t frequencyMid = (frequencyRegisterValue >> 8) & 0xFF;    // Middle byte (FREQ1)
-  uint8_t frequencyLow = frequencyRegisterValue & 0xFF;           // Low byte (FREQ0)
-
-  // Set the transceiver to IDLE state before writing the frequency registers
   setIDLEState();
 
-  writeRegister(CC1101_FREQ2, frequencyHigh);
-  writeRegister(CC1101_FREQ1, frequencyMid);
-  writeRegister(CC1101_FREQ0, frequencyLow);
+  writeRegister(CC1101_FREQ2, (frequencyRegisterValue >> 16) & 0xFF);
+  writeRegister(CC1101_FREQ1, (frequencyRegisterValue >> 8) & 0xFF);
+  writeRegister(CC1101_FREQ0, frequencyRegisterValue & 0xFF);
 
   cfreq = frequency;
 }
@@ -602,7 +628,7 @@ void SmartCC1101::setCarrierFrequency(uint32_t frequency) {
 */
 void SmartCC1101::setModulation(Modulation mod) {
 
-  uint8_t frend0 = 0x10;  // per default, use index 0 for PA setting
+  frend0 = 0x10;  // per default, use index 0 for PA setting
 
   if (mod == mod_ASKOOK)
     frend0 = 0x11;  // use PATABLE index 1 for transmitting '1'
@@ -857,34 +883,38 @@ void SmartCC1101::setWhiteData(bool white) {
 
 /**
 * Set RX/TX symbolrate. Must match in sender/receiver.
-* @param Symbol rate in bit/s
+* @param symbolRate Symbol rate in Baud (25 to 1,621,826)
 * @return none
-* @note The implementation uses floating point calculations as the rounding errors are too big for caltculating the mantissa using int-math
+* @note Uses 64-bit integer arithmetic to avoid float dependency.
+*       symbolRate * 2^28 exceeds uint32_t range, hence uint64_t is required
+*       for the intermediate values. The overhead is acceptable since this
+*       is only called during setup, never in RX/TX hot paths.
 */
-void SmartCC1101::setSymbolRate(double symbolRate) {
+void SmartCC1101::setSymbolRate(uint32_t symbolRate) {
 
-  symbolRate = constrain(symbolRate, CC1101_CRYSTAL_FREQUENCY * 1. / pow(2, 28), CC1101_CRYSTAL_FREQUENCY * 511. / pow(2, 13));
-  double symR = symbolRate;
+  // Clamp to achievable range:
+  //   min: DRATE_M=0, DRATE_E=0 → 256 * Fxtal / 2^28 ≈ 25 Baud
+  //   max: DRATE_M=255, DRATE_E=15 → 511 * 2^15 * Fxtal / 2^28 ≈ 1,621,826 Baud
+  symbolRate = constrain(symbolRate,
+    25u,
+    (uint32_t)((uint64_t)511 * CC1101_CRYSTAL_FREQUENCY >> 13));
 
+  // Find smallest DRATE_E where DRATE_M = symbolRate*2^(28-E)/Fxtal - 256 fits in [0,255]
+  // Equivalent condition: symbolRate * 2^(28-E) <= 511 * Fxtal
   uint8_t drate_e = 0;
-
-  // Find the exponent (drate_e)
-  const double minf = 511. * CC1101_CRYSTAL_FREQUENCY / pow(2, 28);  // drate_m is 255 max
-
-  while (symR > minf) {
-    drate_e++;   // Increment exponent
-    symR /= 2.;  // Divide factor by 2
+  uint64_t sr64 = (uint64_t)symbolRate << 28;
+  const uint64_t limit = (uint64_t)511 * CC1101_CRYSTAL_FREQUENCY;
+  while (sr64 > limit && drate_e < 15) {
+    drate_e++;
+    sr64 >>= 1;
   }
 
-  // ... and calculate the mantissa value
-  double drate_mf = symbolRate * pow(2, 28 - drate_e) / CC1101_CRYSTAL_FREQUENCY;
-  uint8_t drate_m = (drate_mf + .5) - 256;
+  // Calculate mantissa with rounding
+  uint64_t num = (uint64_t)symbolRate << (28 - drate_e);
+  uint8_t drate_m = (uint8_t)((num + CC1101_CRYSTAL_FREQUENCY / 2) / CC1101_CRYSTAL_FREQUENCY) - 256;
 
-  setIDLEState();  // Ensure CC1101 is in IDLE state before configuring
-  // Read the current value of MDMCFG4 and mask out DRATE bits
+  setIDLEState();
   uint8_t currentMdmCfg4 = readRegister(CC1101_MDMCFG4) & 0b11110000;
-
-  // Write the exponent and mantissa to the CC1101 registers
   writeRegister(CC1101_MDMCFG4, currentMdmCfg4 | drate_e);
   writeRegister(CC1101_MDMCFG3, drate_m);
 }
@@ -982,11 +1012,6 @@ void SmartCC1101::setRX(void) {
   if (sleepState)
     onWakeup();
 
-  // reset values from last receive
-  rssi = 0;
-  lqi = 0;
-  crc = false;
-
   uint8_t state = getState();
 
   // wait until calibration or settling finishes
@@ -994,9 +1019,20 @@ void SmartCC1101::setRX(void) {
     state = getState();
   }
 
-  // if already in RX or RX buffer overflow return immediately
-  if ((state == state_RX) || (state == state_RXFIFO_OVERFLOW))
+  // if already in RX return immediately
+  if (state == state_RX)
     return;
+
+  // reset values from last receive
+  rssi = 0;
+  lqi = 0;
+  crc = false;
+
+  // RXFIFO overflow: must flush before we can continue
+  if (state == state_RXFIFO_OVERFLOW) {
+    strobe(CC1101_SFRX);
+    setIDLEState();
+  }
 
   // Handle TX buffer underflow here directly
   if (state == state_TXFIFO_UNDERFLOW)
@@ -1036,15 +1072,8 @@ int8_t SmartCC1101::getRSSI(void) {
 * @return RSSI value in DB (negative value)
 */
 int8_t SmartCC1101::getRSSI(uint8_t rawValue) {
-
-  int16_t rssi = rawValue;
-
-  if (rssi >= 128) {
-    rssi = (rssi - 256) / 2 - 74;
-  } else {
-    rssi = (rssi / 2) - 74;
-  }
-  return (int8_t)rssi;
+ 
+  return ((int8_t)rawValue >> 1) - 74;
 }
 
 /**
@@ -1068,11 +1097,7 @@ bool SmartCC1101::checkCRC(void) {
 * @return true if CRC in RX data is ok, false otherwise
 */
 bool SmartCC1101::checkCRC(uint8_t rawValue) {
-
-  if (rawValue & 0b10000000)
-    return true;
-  else
-    return false;
+  return rawValue & 0x80;
 }
 
 /**

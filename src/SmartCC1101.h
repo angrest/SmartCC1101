@@ -34,6 +34,12 @@
 *
 * @note GDO based communication is not implemented.
 * @note The number of bytes to send/receive in a single transmission is limited to 61 bytes.
+* @note The default register configuration is optimized for 868 MHz operation.
+*       When calling setCarrierFrequency() with a 433 MHz frequency, band-specific
+*       registers (FSCTRL1, FOCCFG, BSCFG, AGCCTRLx, FREND1) are automatically
+*       patched with values derived from CC1101 datasheet formulas and TI application notes.
+*       Switching back to 868/915 MHz restores the original values.
+*       315 MHz band registers are not patched (SmartRF Studio values needed).
 */
 
 
@@ -289,7 +295,7 @@ public:
   void setPacketLength(uint8_t len);
   void setWhiteData(bool white);
   void setManchester(bool menc);
-  void setSymbolRate(double symbolRate);
+  void setSymbolRate(uint32_t symbolRate);
 
   void sendData(const char *txBuffer);
   void sendData(const uint8_t *txBuffer, uint8_t size);
@@ -318,22 +324,22 @@ private:
     state_TXFIFO_UNDERFLOW = 0b111
   };
   chipState getState(void);
-  void writeRegister(uint8_t addr, uint8_t value, const char *str = __builtin_FUNCTION());
-  void writeBurstRegister(uint8_t addr, const uint8_t *buffer, uint8_t num, const char *str = __builtin_FUNCTION());
+  void writeRegister(uint8_t addr, uint8_t value);
+  void writeBurstRegister(uint8_t addr, const uint8_t *buffer, uint8_t num);
+  void writeBurstRegister_P(uint8_t addr, const uint8_t *buffer, uint8_t num);
   uint8_t strobe(uint8_t strobe);
   void setIDLEState(void);
   void reset(void);
   void configCC1101(void);
-  void calibrate(void);
   int8_t getRSSI(uint8_t rawValue);
   bool checkCRC(uint8_t rawValue);
   uint8_t getLQI(uint8_t rawValue);
 
   enum Modulation modulation = mod_2FSK;
-  uint8_t frend0;
+  uint8_t frend0 = 0x10;  // default: PA index 0, set to 0x11 for ASK/OOK
   int8_t pa = 12;
   bool sleepState = false;
-  uint32_t cfreq = 886350000;
+  uint32_t cfreq = 868350000;
   bool crc;
   uint8_t lqi;
   int8_t rssi;
