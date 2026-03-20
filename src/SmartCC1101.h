@@ -204,7 +204,10 @@ class SmartCC1101 {
 public:
   void setDelayFunction(void delayFunc(uint8_t));
   void smartDelay(uint8_t ms);
-  void init(void);
+  void init(uint8_t csPin   = CS_PIN,
+            uint8_t sckPin  = SCK_PIN,
+            uint8_t cipoPin = CIPO_PIN,
+            uint8_t copiPin = COPI_PIN);
   bool getCC1101(void);
   void sleep(void);
   void onWakeup(void);
@@ -334,6 +337,11 @@ private:
   int8_t getRSSI(uint8_t rawValue);
   bool checkCRC(uint8_t rawValue);
   uint8_t getLQI(uint8_t rawValue);
+
+  uint8_t csPin_   = CS_PIN;
+  uint8_t sckPin_  = SCK_PIN;
+  uint8_t cipoPin_ = CIPO_PIN;
+  uint8_t copiPin_ = COPI_PIN;
 
   enum Modulation modulation = mod_2FSK;
   uint8_t frend0 = 0x10;  // default: PA index 0, set to 0x11 for ASK/OOK

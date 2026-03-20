@@ -88,7 +88,7 @@ See `examples/Sender` and `examples/Receiver` for full examples.
 ### Initialization
 | Function | Description |
 |---|---|
-| `init()` | Initialize SPI and reset CC1101. Call first. |
+| `init(csPin, sckPin, cipoPin, copiPin)` | Initialize SPI and reset CC1101. All parameters optional, defaults to platform-specific pins. On AVR, only `csPin` is configurable — SPI pins are hardware-fixed. |
 | `getCC1101()` | Returns `true` if CC1101 is reachable via SPI. |
 
 ### Radio Configuration

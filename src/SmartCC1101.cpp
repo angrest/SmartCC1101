@@ -83,9 +83,7 @@ void SmartCC1101::smartDelay(uint8_t ms) {
 * @return none.
 */
 void SmartCC1101::waitCIPO(void) {
-
-  while (digitalRead(CIPO_PIN) > 0) {
-
+  while (digitalRead(cipoPin_) > 0) {
   }
 }
 
@@ -98,7 +96,7 @@ void SmartCC1101::chipSelect(void) {
 #ifdef SPI_HAS_TRANSACTION
   SPI.beginTransaction(mySPISettings);
 #endif
-  digitalWrite(CS_PIN, LOW);
+  digitalWrite(csPin_, LOW);
 }
 
 /**
@@ -107,7 +105,7 @@ void SmartCC1101::chipSelect(void) {
 * @return none
 */
 void SmartCC1101::chipDeselect(void) {
-  digitalWrite(CS_PIN, HIGH);
+  digitalWrite(csPin_, HIGH);
 #ifdef SPI_HAS_TRANSACTION
   SPI.endTransaction();
 #endif
@@ -230,10 +228,20 @@ uint8_t SmartCC1101::strobe(uint8_t strobe) {
 
 /**
 * CC1101 initialization
-* @param none
+* @param csPin   Chip Select pin (default: platform-specific CS_PIN)
+* @param sckPin  SPI clock pin  (default: platform-specific SCK_PIN)
+* @param cipoPin SPI CIPO/MISO pin (default: platform-specific CIPO_PIN)
+* @param copiPin SPI COPI/MOSI pin (default: platform-specific COPI_PIN)
+* @note  On AVR platforms, sckPin/cipoPin/copiPin are ignored — SPI hardware
+*        pins are fixed. Only csPin is configurable on AVR.
 * @return none
 */
-void SmartCC1101::init(void) {
+void SmartCC1101::init(uint8_t csPin, uint8_t sckPin, uint8_t cipoPin, uint8_t copiPin) {
+
+  csPin_   = csPin;
+  sckPin_  = sckPin;
+  cipoPin_ = cipoPin;
+  copiPin_ = copiPin;
 
 #ifdef SPI_HAS_TRANSACTION
   // works with SPI_MODE0, SPI_MODE2, SPI_MODE3
@@ -242,26 +250,25 @@ void SmartCC1101::init(void) {
 #warning SPI Transactions are not supported on this board
 #endif
 
-  pinMode(SCK_PIN, OUTPUT);
-  digitalWrite(SCK_PIN, HIGH);
+  pinMode(sckPin_, OUTPUT);
+  digitalWrite(sckPin_, HIGH);
 
-  pinMode(COPI_PIN, OUTPUT);
-  digitalWrite(COPI_PIN, LOW);
+  pinMode(copiPin_, OUTPUT);
+  digitalWrite(copiPin_, LOW);
 
-  pinMode(CIPO_PIN, INPUT);
+  pinMode(cipoPin_, INPUT);
 
-  pinMode(CS_PIN, OUTPUT);
+  pinMode(csPin_, OUTPUT);
   chipDeselect();
 
-#ifdef ESP32
-  SPI.begin(SCK_PIN, CIPO_PIN, COPI_PIN, CS_PIN);
+#if defined(ESP32) || defined(ESP8266)
+  SPI.begin(sckPin_, cipoPin_, copiPin_, csPin_);
 #else
-  SPI.begin();
+  SPI.begin();  // AVR: hardware SPI pins are fixed, pin parameters above are ignored
 #endif
 
-  reset();  //reset first before going further
-
-  configCC1101();  //CC1101 default configuration
+  reset();        // reset first before going further
+  configCC1101(); // CC1101 default configuration
 }
 
 /**
