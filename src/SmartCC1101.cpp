@@ -843,7 +843,7 @@ void SmartCC1101::setPQT(uint8_t pqt) {
   uint8_t state = readRegister(CC1101_PKTCTRL1);
   state &= 0b00011111;
 
-  pqt <<= 5;  // this takes care we do not use alues exceeding range
+  pqt <<= 5;  // this takes care we do not use values exceeding range
 
   writeRegister(CC1101_PKTCTRL1, state | pqt);
 }
@@ -954,7 +954,8 @@ void SmartCC1101::setDeviation(uint32_t deviation) {
 
 /**
 * Send data
-* @param txBuffer zero-terminated character array to send, no more than 61
+* @param txBuffer zero-terminated character array to send, no more than 61 bytes.
+*                 Must not be NULL.
 * @return none
 */
 void SmartCC1101::sendData(const char *txBuffer) {
@@ -1038,7 +1039,7 @@ void SmartCC1101::setRX(void) {
   if (state == state_TXFIFO_UNDERFLOW)
     strobe(CC1101_SFTX);
 
-  //N all other states are unexpected, force to IDLE first
+  // All other states are unexpected, force to IDLE first
   if (state != 0) {
     setIDLEState();
   }
@@ -1056,7 +1057,7 @@ void SmartCC1101::setRX(void) {
 * Get RSSI Level
 * read current RSSI Level if not IDLE, the one from last RX otherwise
 * @param none
-* @return RSSI value in DB (negative value)
+* @return RSSI value in dBm, typically in range -140 to 0
 */
 int8_t SmartCC1101::getRSSI(void) {
   if (getState() != state_IDLE)
@@ -1104,7 +1105,7 @@ bool SmartCC1101::checkCRC(uint8_t rawValue) {
 * Link Quality Indication (LQI)
 * read current LQI if not IDLE, the one from last RX otherwise
 * @param none
-* @return LQI value (lower is better)
+* @return LQI value in range 0-127 (lower is better)
 */
 uint8_t SmartCC1101::getLQI(void) {
   if (getState() != state_IDLE)
@@ -1125,10 +1126,11 @@ uint8_t SmartCC1101::getLQI(uint8_t rawValue) {
 
 /**
 * read data received from RXfifo
-* @param[out] rxBuffer buffer to store data
+* @param[out] rxBuffer buffer to store data. Must be at least 61 bytes in size,
+*             as the CC1101 hardware limits payload to a maximum of 61 bytes.
 * @return number of bytes received, 0 if:
 * @li still RX'ing
-* @li inconsisntent state or 
+* @li inconsistent state or
 * @li CRC error (if setCRC_AF(true))
 *
 */
@@ -1165,7 +1167,7 @@ uint8_t SmartCC1101::receiveData(uint8_t *rxBuffer) {
       size = 0;
     }
   } else {
-    // if buffer is empty after transition for RX to IDLE, most probably CRC_AF was set and the beffer got cleared on a CRC error
+    // if buffer is empty after transition for RX to IDLE, most probably CRC_AF was set and the buffer got cleared on a CRC error
     rssi = 0;
     lqi = 0;
     crc = false;
