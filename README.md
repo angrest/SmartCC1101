@@ -1,5 +1,10 @@
 # SmartCC1101
 
+[![Arduino Lint](https://github.com/angrest/SmartCC1101/actions/workflows/arduino-checks.yml/badge.svg)](https://github.com/angrest/SmartCC1101/actions/workflows/arduino-checks.yml)
+[![Compile (Uno)](https://github.com/angrest/SmartCC1101/actions/workflows/arduino-checks.yml/badge.svg?job=compile-avr)](https://github.com/angrest/SmartCC1101/actions/workflows/arduino-checks.yml)
+[![Compile (ESP32)](https://github.com/angrest/SmartCC1101/actions/workflows/arduino-checks.yml/badge.svg?job=compile-esp32)](https://github.com/angrest/SmartCC1101/actions/workflows/arduino-checks.yml)
+[![Compile (ESP8266)](https://github.com/angrest/SmartCC1101/actions/workflows/arduino-checks.yml/badge.svg?job=compile-esp8266)](https://github.com/angrest/SmartCC1101/actions/workflows/arduino-checks.yml)
+
 Arduino library for the CC1101/CC1100 sub-GHz RF transceiver module.
 
 Provides straightforward access to sending and receiving data, with full control over the CC1101's configuration registers — without needing TI's SmartRF Studio.
