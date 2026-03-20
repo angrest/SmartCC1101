@@ -207,7 +207,8 @@ public:
   void init(uint8_t csPin   = CS_PIN,
             uint8_t sckPin  = SCK_PIN,
             uint8_t cipoPin = CIPO_PIN,
-            uint8_t copiPin = COPI_PIN);
+            uint8_t copiPin = COPI_PIN,
+            SPIClass& spi   = SPI);
   bool getCC1101(void);
   void sleep(void);
   void onWakeup(void);
@@ -342,6 +343,7 @@ private:
   uint8_t sckPin_  = SCK_PIN;
   uint8_t cipoPin_ = CIPO_PIN;
   uint8_t copiPin_ = COPI_PIN;
+  SPIClass* spi_   = &SPI;
 
   enum Modulation modulation = mod_2FSK;
   uint8_t frend0 = 0x10;  // default: PA index 0, set to 0x11 for ASK/OOK

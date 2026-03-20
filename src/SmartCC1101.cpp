@@ -94,7 +94,7 @@ void SmartCC1101::waitCIPO(void) {
 */
 void SmartCC1101::chipSelect(void) {
 #ifdef SPI_HAS_TRANSACTION
-  SPI.beginTransaction(mySPISettings);
+  spi_->beginTransaction(mySPISettings);
 #endif
   digitalWrite(csPin_, LOW);
 }
@@ -107,7 +107,7 @@ void SmartCC1101::chipSelect(void) {
 void SmartCC1101::chipDeselect(void) {
   digitalWrite(csPin_, HIGH);
 #ifdef SPI_HAS_TRANSACTION
-  SPI.endTransaction();
+  spi_->endTransaction();
 #endif
 }
 
@@ -124,8 +124,8 @@ uint8_t SmartCC1101::readRegister(uint8_t addr) {
 
   chipSelect();
   waitCIPO();
-  SPI.transfer(addr | READ_SINGLE);
-  uint8_t value = SPI.transfer(0);
+  spi_->transfer(addr | READ_SINGLE);
+  uint8_t value = spi_->transfer(0);
   chipDeselect();
   return value;
 }
@@ -141,9 +141,9 @@ void SmartCC1101::readBurstRegister(uint8_t addr, uint8_t *buffer, uint8_t num) 
 
   chipSelect();
   waitCIPO();
-  SPI.transfer(addr | READ_BURST);
+  spi_->transfer(addr | READ_BURST);
   for (uint8_t i = 0; i < num; i++) {
-    buffer[i] = SPI.transfer(0);
+    buffer[i] = spi_->transfer(0);
   }
   chipDeselect();
 }
@@ -157,8 +157,8 @@ uint8_t SmartCC1101::readStatusRegister(uint8_t addr) {
 
   chipSelect();
   waitCIPO();
-  SPI.transfer(addr | READ_BURST);
-  uint8_t value = SPI.transfer(0);
+  spi_->transfer(addr | READ_BURST);
+  uint8_t value = spi_->transfer(0);
   chipDeselect();
   return value;
 }
@@ -173,8 +173,8 @@ void SmartCC1101::writeRegister(uint8_t addr, uint8_t value) {
 
   chipSelect();
   waitCIPO();
-  SPI.transfer(addr);
-  SPI.transfer(value);
+  spi_->transfer(addr);
+  spi_->transfer(value);
   chipDeselect();
 }
 
@@ -189,9 +189,9 @@ void SmartCC1101::writeBurstRegister(uint8_t addr, const uint8_t *buffer, const 
 
   chipSelect();
   waitCIPO();
-  SPI.transfer(addr | WRITE_BURST);
+  spi_->transfer(addr | WRITE_BURST);
   for (uint8_t i = 0; i < num; i++) {
-    SPI.transfer(buffer[i]);
+    spi_->transfer(buffer[i]);
   }
   chipDeselect();
 }
@@ -207,9 +207,9 @@ void SmartCC1101::writeBurstRegister_P(uint8_t addr, const uint8_t *buffer, uint
 
   chipSelect();
   waitCIPO();
-  SPI.transfer(addr | WRITE_BURST);
+  spi_->transfer(addr | WRITE_BURST);
   for (uint8_t i = 0; i < num; i++) {
-    SPI.transfer(pgm_read_byte(&buffer[i]));
+    spi_->transfer(pgm_read_byte(&buffer[i]));
   }
   chipDeselect();
 }
@@ -217,7 +217,7 @@ uint8_t SmartCC1101::strobe(uint8_t strobe) {
 
   chipSelect();
   waitCIPO();
-  uint8_t value = SPI.transfer(strobe);
+  uint8_t value = spi_->transfer(strobe);
   chipDeselect();
   return value;
 }
@@ -232,16 +232,19 @@ uint8_t SmartCC1101::strobe(uint8_t strobe) {
 * @param sckPin  SPI clock pin  (default: platform-specific SCK_PIN)
 * @param cipoPin SPI CIPO/MISO pin (default: platform-specific CIPO_PIN)
 * @param copiPin SPI COPI/MOSI pin (default: platform-specific COPI_PIN)
+* @param spi     SPI bus to use (default: SPI). Pass e.g. a custom SPIClass
+*                instance to use a different hardware SPI bus (e.g. HSPI on ESP32).
 * @note  On AVR platforms, sckPin/cipoPin/copiPin are ignored — SPI hardware
 *        pins are fixed. Only csPin is configurable on AVR.
 * @return none
 */
-void SmartCC1101::init(uint8_t csPin, uint8_t sckPin, uint8_t cipoPin, uint8_t copiPin) {
+void SmartCC1101::init(uint8_t csPin, uint8_t sckPin, uint8_t cipoPin, uint8_t copiPin, SPIClass& spi) {
 
   csPin_   = csPin;
   sckPin_  = sckPin;
   cipoPin_ = cipoPin;
   copiPin_ = copiPin;
+  spi_     = &spi;
 
 #ifdef SPI_HAS_TRANSACTION
   // works with SPI_MODE0, SPI_MODE2, SPI_MODE3
@@ -262,9 +265,9 @@ void SmartCC1101::init(uint8_t csPin, uint8_t sckPin, uint8_t cipoPin, uint8_t c
   chipDeselect();
 
 #if defined(ESP32) || defined(ESP8266)
-  SPI.begin(sckPin_, cipoPin_, copiPin_, csPin_);
+  spi_->begin(sckPin_, cipoPin_, copiPin_, csPin_);
 #else
-  SPI.begin();  // AVR: hardware SPI pins are fixed, pin parameters above are ignored
+  spi_->begin();  // AVR: hardware SPI pins are fixed, pin parameters above are ignored
 #endif
 
   reset();        // reset first before going further
@@ -284,7 +287,7 @@ void SmartCC1101::reset(void) {
   chipSelect();
   waitCIPO();
 
-  SPI.transfer(CC1101_SRES);
+  spi_->transfer(CC1101_SRES);
 
   waitCIPO();
   chipDeselect();

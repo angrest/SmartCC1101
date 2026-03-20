@@ -88,7 +88,7 @@ See `examples/Sender` and `examples/Receiver` for full examples.
 ### Initialization
 | Function | Description |
 |---|---|
-| `init(csPin, sckPin, cipoPin, copiPin)` | Initialize SPI and reset CC1101. All parameters optional, defaults to platform-specific pins. On AVR, only `csPin` is configurable — SPI pins are hardware-fixed. |
+| `init(csPin, sckPin, cipoPin, copiPin, spi)` | Initialize SPI and reset CC1101. All parameters optional, defaults to platform-specific pins and the default `SPI` bus. Pass a custom `SPIClass` instance to use a different SPI bus (e.g. `HSPI` on ESP32). On AVR, only `csPin` is configurable — SPI pins are hardware-fixed. |
 | `getCC1101()` | Returns `true` if CC1101 is reachable via SPI. |
 
 ### Radio Configuration
