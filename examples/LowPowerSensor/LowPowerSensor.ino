@@ -7,8 +7,9 @@
  *   - 433.92 MHz band operation
  *   - Sending binary data (struct) using sendData(uint8_t*, size)
  *   - Fixed packet length mode
- *   - sleep() to power down the CC1101 between transmissions
- *     (wakeup is automatic on the next sendData() or setRX() call)
+ *   - sleep() to power down the CC1101 (~200 nA) between transmissions
+ *     (wakeup is automatic on the next sendData(), setRX(), or receiveData() call;
+ *      restored registers are handled transparently by the library)
  *   - Optional: injecting a custom delay function for RTOS integration
  *
  * The packet payload is a small C struct containing a counter and simulated
@@ -115,16 +116,17 @@ void loop() {
 
   // --- Transmit ---
   // sendData() accepts a raw byte pointer and the number of bytes to send.
-  // It wakes the CC1101 automatically if sleep() was called before.
+  // It wakes the CC1101 automatically — no explicit wakeup call needed.
   Smartcc1101.sendData(reinterpret_cast<const uint8_t *>(&pkt), sizeof(pkt));
 
   Serial.print(F("Sent packet #"));
   Serial.println(pkt.counter);
 
-  // --- Power down the CC1101 until the next transmission ---
+  // --- Power down the CC1101 (~200 nA) until the next transmission ---
+  // The next sendData() call will wake it and restore all registers automatically.
   // In a real low-power application, also put the MCU to sleep here
   // (e.g. LowPower.powerDown() on AVR, esp_light_sleep_start() on ESP32).
   Smartcc1101.sleep();
 
-  delay(5000);  // replace with MCU sleep for actual power savings
+  delay(5000);  // replace with MCU deep sleep for actual power savings
 }

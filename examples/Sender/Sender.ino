@@ -57,12 +57,13 @@ void setup() {
 }
 
 void loop() {
-  // sendData() wakes the CC1101 automatically if sleep() was called before.
+  // sendData() wakes the CC1101 automatically — no explicit wakeup call needed.
   Smartcc1101.sendData("Hello world!");
   Serial.println(F("Sent: Hello world!"));
 
-  // Put the CC1101 into power-down mode between transmissions.
-  // In a real low-power application, also sleep the MCU here.
+  // Put the CC1101 into power-down mode (~200 nA) between transmissions.
+  // In a real low-power application, also put the MCU to sleep here
+  // (e.g. LowPower.powerDown() on AVR, esp_light_sleep_start() on ESP32).
   Smartcc1101.sleep();
 
   delay(1000);
