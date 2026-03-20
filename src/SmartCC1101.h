@@ -202,6 +202,8 @@
 class SmartCC1101 {
 
 public:
+  /** Replace the built-in delay() with a custom function (e.g. vTaskDelay for
+   *  FreeRTOS). Optional — only needed when running under an RTOS. */
   void setDelayFunction(void delayFunc(uint8_t));
   void init(uint8_t csPin   = CS_PIN,
             uint8_t sckPin  = SCK_PIN,
