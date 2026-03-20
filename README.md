@@ -11,7 +11,7 @@ Provides straightforward access to sending and receiving data, with full control
 
 ## Features
 
-- Supports 300–348 MHz, 387–464 MHz, and 779–928 MHz bands
+- Supports 300–348 MHz, 387–464 MHz, and 779–928 MHz bands (868 MHz tested; 433 MHz supported in hardware but not yet field-tested)
 - Automatic band-specific register patching when switching between 868 MHz and 433 MHz
 - Configurable modulation (2-FSK, GFSK, ASK/OOK, 4-FSK, MSK)
 - Variable or fixed packet length mode (max. 61 bytes payload)
