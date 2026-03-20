@@ -137,7 +137,11 @@ See `examples/Sender` and `examples/Receiver` for full examples.
 | `getLastError()` | Returns the last `ErrorCode`: `err_NONE`, `err_SPI_TIMEOUT`, `err_IDLE_TIMEOUT`, `err_TX_TIMEOUT`, `err_CALIB_TIMEOUT` |
 | `clearError()` | Clears the error flag before retrying |
 
-`sendData()` and `setRX()` return `false` on failure and set an error code. The library does **not** attempt automatic recovery — call `init()` to reset the chip, or `clearError()` if the fault was transient. Passing `return false` through discarded return values is valid C++ and requires no changes to existing code.
+`sendData()` and `setRX()` return `false` on failure and set an error code. The library does **not** attempt automatic recovery.
+
+`err_SPI_TIMEOUT` indicates that MISO did not respond — this points to a hardware problem (loose connection, cold solder joint, missing power). Calling `init()` will not fix this; inspect the wiring first. `err_IDLE_TIMEOUT`, `err_TX_TIMEOUT`, and `err_CALIB_TIMEOUT` can in principle occur after a transient glitch; calling `clearError()` followed by `init()` is worth trying, but a hardware fault cannot be ruled out.
+
+Discarding the return value of `sendData()` / `setRX()` is valid C++ — existing code requires no changes.
 
 ### Power Management
 | Function | Description |
