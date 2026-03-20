@@ -28,6 +28,8 @@ jobs:
           sketch-paths: |
             - examples/Sender
             - examples/Receiver
+            - examples/LowPowerSensor
+            - examples/LowPowerReceiver
 
   compile-esp32:
     name: Compile (ESP32)
@@ -43,6 +45,8 @@ jobs:
           sketch-paths: |
             - examples/Sender
             - examples/Receiver
+            - examples/LowPowerSensor
+            - examples/LowPowerReceiver
             - examples/ESP32_HSPI_Sender
 
   compile-esp8266:
@@ -59,3 +63,5 @@ jobs:
           sketch-paths: |
             - examples/Sender
             - examples/Receiver
+            - examples/LowPowerSensor
+            - examples/LowPowerReceiver

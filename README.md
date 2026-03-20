@@ -134,8 +134,7 @@ See `examples/Sender` and `examples/Receiver` for full examples.
 ### Power Management
 | Function | Description |
 |---|---|
-| `sleep()` | Enter power-down mode |
-| `onWakeup()` | Wake up from sleep (called automatically by sendData/setRX) |
+| `sleep()` | Enter power-down mode. Wake-up is automatic on the next `sendData()` or `setRX()` call. |
 
 ## Known Limitations
 

@@ -203,7 +203,6 @@ class SmartCC1101 {
 
 public:
   void setDelayFunction(void delayFunc(uint8_t));
-  void smartDelay(uint8_t ms);
   void init(uint8_t csPin   = CS_PIN,
             uint8_t sckPin  = SCK_PIN,
             uint8_t cipoPin = CIPO_PIN,
@@ -211,7 +210,6 @@ public:
             SPIClass& spi   = SPI);
   bool getCC1101(void);
   void sleep(void);
-  void onWakeup(void);
   void setDCFilterOff(bool dcf);
   void setCarrierFrequency(uint32_t freq);
   enum rx_BandWidth : uint8_t {
@@ -333,6 +331,8 @@ private:
   void writeBurstRegister_P(uint8_t addr, const uint8_t *buffer, uint8_t num);
   uint8_t strobe(uint8_t strobe);
   void setIDLEState(void);
+  void onWakeup(void);
+  void smartDelay(uint8_t ms);
   void reset(void);
   void configCC1101(void);
   int8_t getRSSI(uint8_t rawValue);

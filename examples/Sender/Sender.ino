@@ -1,84 +1,69 @@
 /**
-* @brief Example for CC1101 module library
-* @file Sender.ino
-* @author Axel Grewe
-*
-* This is the implementation of a basic sender
-*
-* @copyright
-*  MIT License
-*  
-*  Copyright (c) 2024 Axel Grewe
-*  
-*  Permission is hereby granted, free of charge, to any person obtaining a copy
-*  of this software and associated documentation files (the "Software"), to deal
-*  in the Software without restriction, including without limitation the rights
-*  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-*  copies of the Software, and to permit persons to whom the Software is
-*  furnished to do so, subject to the following conditions:
-*  
-*  The above copyright notice and this permission notice shall be included in all
-*  copies or substantial portions of the Software.
-*  
-*  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-*  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-*  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-*  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-*  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-*  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-*  SOFTWARE.
-*/
+ * @brief Basic sender example for the SmartCC1101 library
+ * @file Sender.ino
+ * @author Axel Grewe
+ *
+ * Sends a text string once per second on 868.35 MHz.
+ * Works on Arduino Uno/Nano/Mega, ESP8266, and ESP32 without modification.
+ * Pair with the Receiver example.
+ *
+ * Wiring (default SPI pins):
+ *   Arduino Uno/Nano: CS=10, SCK=13, MISO=12, MOSI=11
+ *   ESP8266:          CS=15, SCK=14, MISO=12, MOSI=13
+ *   ESP32:            CS=5,  SCK=18, MISO=19, MOSI=23
+ *
+ * To use a different CS pin:  Smartcc1101.init(7);
+ * ESP32/ESP8266 custom pins:  Smartcc1101.init(CS, SCK, MISO, MOSI);
+ *
+ * @copyright
+ *  MIT License
+ *
+ *  Copyright (c) 2024 Axel Grewe
+ *
+ *  Permission is hereby granted, free of charge, to any person obtaining a copy
+ *  of this software and associated documentation files (the "Software"), to deal
+ *  in the Software without restriction, including without limitation the rights
+ *  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ *  copies of the Software, and to permit persons to whom the Software is
+ *  furnished to do so, subject to the following conditions:
+ *
+ *  The above copyright notice and this permission notice shall be included in all
+ *  copies or substantial portions of the Software.
+ *
+ *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ *  SOFTWARE.
+ */
 
 #include <SmartCC1101.h>
 
 void setup() {
   Serial.begin(115200);
 
-  // Initialize with default pins. To use a custom CS pin (any platform):
-  //   Smartcc1101.init(7);                    // CS on pin 7
-  // ESP32/ESP8266: all SPI pins and/or a different SPI bus can be specified:
-  //   Smartcc1101.init(CS_PIN, SCK_PIN, CIPO_PIN, COPI_PIN);
-  //   Smartcc1101.init(5, 18, 19, 23, mySPI); // custom SPIClass instance
-  Smartcc1101.init();  // must be called first to initialize the CC1101
+  Smartcc1101.init();
 
-  if (Smartcc1101.getCC1101()) {  // Check the CC1101 SPI connection.
-    Serial.println(F("[I] CC1101 connected."));
-  } else {
-    Serial.println(F("[E] *** CC1101 connection Error ***"));
-    delay(20000);
+  if (!Smartcc1101.getCC1101()) {
+    Serial.println(F("[E] CC1101 connection error — check wiring"));
+    while (1);
   }
+  Serial.println(F("[I] CC1101 connected."));
 
-  // Most of the settings repeat standard settings and are here for illustration
-  Smartcc1101.setDCFilterOff(false);                        // Disable digital DC blocking filter before demodulator. Only for data rates ≤ 250 kBaud. The recommended IF frequency changes when the DC blocking is disabled. true = Disable (current optimized), false = Enable (better sensitivity).
-  Smartcc1101.setModulation(SmartCC1101::mod_2FSK);         // set modulation mode. Possible values: mod_2FSK (default), mod_GFSK, mod_ASKOOK, mod_4FSK, mod_MSK
-  Smartcc1101.setCarrierFrequency(868350000);               // Set transmission frequency in Hz. Default = 868.35 MHz. The cc1101 can use 300-348 MHz, 387-464 MHz and 779-928 MHz. More info in the datasheet.
-  Smartcc1101.setPA(12);                                    // Set TXPower. The following settings are possible depending on the frequency band.  (-30  -20  -15  -10  -6    0    5    7    10   11   12) Default is max!
-  Smartcc1101.setDeviation(47608);                          // Set the Frequency deviation in Hz. Value from 1586 to 380850. Default is 47607 kHz. Note: the algorithm rounds down. On exact interval limits, the next lower value might be taken (that's why here 47608 is used)
-  Smartcc1101.setRXBandwidth(SmartCC1101::bw_812kHz);      // Set the Receive Bandwidth in kHz. Possible values: bw_58kHz  = 58kHz, bw_68kHz, bw_81kHz, bw_102kHz,bw_116kHz, bw_135kHz, bw_162kHz, bw_203kHz (default), bw_232kHz, bw_270kHz, bw_325kHz, bw_406kHz, bw_464kHz, bw_541kHz, bw_650kHz, bw_812kHz = 812kHz
-  Smartcc1101.setSymbolRate(100000);                        // Set the Data Rate in Baud. Value from 20 to 1621830 Default is 115051 Baud
-  Smartcc1101.setSyncWord(0xD3, 0x91);                      // Set sync word. Must match in sender and receiver. (Syncword high, Syncword low). Values given are default values
-  Smartcc1101.setSyncMode(SmartCC1101::sync_1616);          // Combined sync-word qualifier mode. sync_NONE = No preamble/sync. sync_1516 = 15/16 sync word bits detected. sync_1616 = 16/16 sync word bits detected (default). sync_3032 = 30/32 sync word bits detected (sync word sent twice).
-                                                            // sync_NONECS = No preamble/sync, carrier-sense above threshold. sync_1516CS = 15/16 + carrier-sense above threshold. sync_1516CS = 15/16 + carrier-sense above threshold. sync_1616CS = 16/16 + carrier-sense above threshold. sync_3032CS = 30/32 (sync word sent twice). + carrier-sense above threshold.
-  Smartcc1101.setPRE(SmartCC1101::pre_4);                   // Sets the minimum number of preamble bytes to be transmitted. Possible values: pre_2 : 2, pre_3 : 3, pre_4 : 4 (default), pre_6 : 6, pre_8 : 8, pre_12 : 12, pre_16 : 16, pre_24 : 24
-  Smartcc1101.setPQT(0);                                    // Preamble quality estimator threshold. 0 is the default. The preamble quality estimator increases an internal counter by one each time a bit is received that is different from the previous bit, and decreases the counter by 8 each time a bit is received that is the same as the last bit. A threshold of 4∙PQT for this counter is used to gate sync word detection. When PQT=0 a sync word is always accepted.
-  Smartcc1101.setAdrChk(SmartCC1101::adc_NO);               // Controls address check configuration of received packages. adc_NO = No address check (default). adc_YESNOBC = Address check, no broadcast. adc_YES0BC = Address check and 0 (0x00) broadcast. adc_YES0FFBC = Address check and 0 (0x00) and 255 (0xFF) broadcast.
-  Smartcc1101.setAddr(0);                                   // Address used for packet filtration. 0 is default. Optional broadcast addresses are 0 (0x00) and 255 (0xFF).
-  Smartcc1101.setManchester(true);                          // Enables Manchester encoding/decoding. false = Disable (default), true = Enable.
-  Smartcc1101.setWhiteData(true);                           // Turn data whitening on / off. false = Whitening off (default). true = Whitening on.
-  Smartcc1101.setPktFormat(SmartCC1101::pktf_NORMAL);       // Format of RX and TX data. pktf_NORMAL = Normal mode, use FIFOs for RX and TX (default). pktf_RANDOMTX = Random TX mode; sends random data using PN9 generator. Used for test. Works as normal mode, setting 0 (00), in RX.
-  Smartcc1101.setLengthConfig(SmartCC1101::pktl_VARIABLE);  // pktl_FIXED = Fixed packet length mode. pktl_VARIABLE = Variable packet length mode (default).
-  Smartcc1101.setPacketLength(61);                          // Indicates the packet length when fixed packet length mode is enabled. If variable packet length mode is used, this value indicates the maximum packet length allowed. 61 is maximum allowed value in this implementation
-  Smartcc1101.setFEC(false);                                // Enable Forward Error Correction (FEC) with interleaving for packet payload (Only supported for fixed packet length mode. false = Disable (default), true = Enable.
-  Smartcc1101.setCRCCheck(true);                            // true = CRC calculation in TX and CRC check in RX enabled. false = CRC disabled for TX and RX (default).
-  Smartcc1101.setCRC_AF(false);                             // Enable automatic flush of RX FIFO when CRC is not OK. (Default: false)
+  Smartcc1101.setCarrierFrequency(868350000);  // 868.35 MHz
+  Smartcc1101.setCRCCheck(true);
 }
 
 void loop() {
+  // sendData() wakes the CC1101 automatically if sleep() was called before.
+  Smartcc1101.sendData("Hello world!");
+  Serial.println(F("Sent: Hello world!"));
 
-  const char messageText[] = "Hello world!";
-  // Send data. Returns when data is actually sent.
-  Smartcc1101.sendData(messageText);
+  // Put the CC1101 into power-down mode between transmissions.
+  // In a real low-power application, also sleep the MCU here.
+  Smartcc1101.sleep();
 
-  // Wait a moment untill next data sent.
   delay(1000);
 }
