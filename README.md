@@ -12,6 +12,7 @@ Provides straightforward access to sending and receiving data, with full control
 - Variable or fixed packet length mode (max. 61 bytes payload)
 - CRC check, data whitening, Manchester encoding, FEC
 - Low memory footprint — runs on Arduino Nano/Pro Mini
+- No floating point operations and no `printf` dependency — safe for AVR targets with limited math libraries
 - Custom delay function support (e.g. for RTOS integration)
 
 ## Supported Boards
