@@ -209,6 +209,8 @@ public:
             uint8_t copiPin = COPI_PIN,
             SPIClass& spi   = SPI);
   bool getCC1101(void);
+  /** Put CC1101 into power-down mode (~200 nA). Wakeup is automatic on the
+   *  next sendData(), setRX(), or receiveData() call. */
   void sleep(void);
   void setDCFilterOff(bool dcf);
   void setCarrierFrequency(uint32_t freq);

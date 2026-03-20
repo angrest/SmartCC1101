@@ -312,7 +312,20 @@ void SmartCC1101::setIDLEState(void) {
 }
 
 /**
-* Set CC1101 in sleep mode.
+* Put the CC1101 into power-down (sleep) mode.
+*
+* Strobes SPWD after forcing the chip to IDLE, cutting power to the
+* oscillator, frequency synthesizer, and analog blocks.
+*
+* Wakeup is automatic: sendData(), setRX(), and receiveData() all check the
+* sleep state and restore the chip before proceeding. There is no need to
+* call any wakeup function explicitly.
+*
+* @note Several CC1101 registers (AGCTEST, TEST0, FREND0, PATABLE for
+*       ASK/OOK) are reset by the hardware during sleep. They are
+*       transparently restored on wakeup.
+* @note The CC1101 draws approximately 200 nA in power-down mode.
+*       For maximum system power savings, also put the host MCU to sleep.
 * @param none
 * @return none
 */
@@ -423,7 +436,8 @@ void SmartCC1101::configCC1101(void) {
 
 
 /**
-* Rewrite settings of the registers which are reset on sleep
+* Restore CC1101 registers reset during sleep and clear the sleep flag.
+* Called automatically by sendData(), setRX(), and receiveData().
 * @param none
 * @return none
 */
