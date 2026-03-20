@@ -55,7 +55,12 @@ void setup() {
   Smartcc1101.init();
 
   if (!Smartcc1101.getCC1101()) {
-    Serial.println(F("[E] CC1101 connection error — check wiring"));
+    // SPI communication failed. This is almost always a hardware problem:
+    //   - CC1101 requires 3.3 V — use a level shifter with 5 V boards
+    //   - Check VCC, GND, and all four SPI wires (SCK, MISO, MOSI, CS)
+    //   - Cold solder joints and loose jumper wires are common culprits
+    // Calling init() again will not help until the hardware issue is resolved.
+    Serial.println(F("[E] CC1101 connection error — check wiring and power supply"));
     while (1);
   }
   Serial.println(F("[I] CC1101 connected."));
@@ -76,7 +81,14 @@ void setup() {
   Smartcc1101.setLengthConfig(SmartCC1101::pktl_FIXED);
   Smartcc1101.setPacketLength(sizeof(SensorPacket));
 
-  Smartcc1101.setRX();  // start listening
+  if (!Smartcc1101.setRX()) {
+    Serial.print(F("[E] setRX failed, error code: "));
+    Serial.println(Smartcc1101.getLastError());
+    // If getCC1101() passed but setRX() fails, the chip stopped responding.
+    // A transient glitch may resolve with init(), but a hardware fault
+    // (loose wire, power issue) is equally likely — check both.
+    while (1);
+  }
   Serial.println(F("[I] Listening on 433.92 MHz..."));
 }
 
@@ -91,7 +103,10 @@ void loop() {
   if (len != sizeof(SensorPacket)) {
     Serial.print(F("[W] Unexpected packet size: "));
     Serial.println(len);
-    Smartcc1101.setRX();
+    if (!Smartcc1101.setRX()) {
+      Smartcc1101.clearError();
+      // Smartcc1101.init();  // uncomment to attempt recovery after a transient glitch
+    }
     return;
   }
 
@@ -118,5 +133,12 @@ void loop() {
   Serial.print(F(" dBm  LQI: "));
   Serial.println(Smartcc1101.getLQI());
 
-  Smartcc1101.setRX();  // go back to receive mode for next packet
+  if (!Smartcc1101.setRX()) {
+    Serial.print(F("[E] setRX failed, error code: "));
+    Serial.println(Smartcc1101.getLastError());
+    // Transient glitch: clearError() + init() may recover.
+    // Persistent errors most likely indicate a hardware fault — check wiring.
+    Smartcc1101.clearError();
+    // Smartcc1101.init();  // uncomment to attempt recovery
+  }
 }

@@ -47,7 +47,12 @@ void setup() {
   Smartcc1101.init();
 
   if (!Smartcc1101.getCC1101()) {
-    Serial.println(F("[E] CC1101 connection error — check wiring"));
+    // SPI communication failed. This is almost always a hardware problem:
+    //   - CC1101 requires 3.3 V — use a level shifter with 5 V boards
+    //   - Check VCC, GND, and all four SPI wires (SCK, MISO, MOSI, CS)
+    //   - Cold solder joints and loose jumper wires are common culprits
+    // Calling init() again will not help until the hardware issue is resolved.
+    Serial.println(F("[E] CC1101 connection error — check wiring and power supply"));
     while (1);
   }
   Serial.println(F("[I] CC1101 connected."));
@@ -63,8 +68,11 @@ void loop() {
   } else {
     Serial.print(F("[E] Send failed, error code: "));
     Serial.println(Smartcc1101.getLastError());
+    // Error 1 (err_SPI_TIMEOUT): MISO never responded — hardware fault, check wiring.
+    // Errors 2-4: may be transient. Try clearError() + init() once; if the problem
+    // persists, inspect wiring and power before assuming it is a software issue.
     Smartcc1101.clearError();
-    // Optional recovery: Smartcc1101.init();
+    // Smartcc1101.init();  // uncomment to attempt recovery after a transient glitch
   }
 
   // Put the CC1101 into power-down mode (~200 nA) between transmissions.

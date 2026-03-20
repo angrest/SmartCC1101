@@ -47,7 +47,12 @@ void setup() {
   Smartcc1101.init();
 
   if (!Smartcc1101.getCC1101()) {
-    Serial.println(F("[E] CC1101 connection error — check wiring"));
+    // SPI communication failed. This is almost always a hardware problem:
+    //   - CC1101 requires 3.3 V — use a level shifter with 5 V boards
+    //   - Check VCC, GND, and all four SPI wires (SCK, MISO, MOSI, CS)
+    //   - Cold solder joints and loose jumper wires are common culprits
+    // Calling init() again will not help until the hardware issue is resolved.
+    Serial.println(F("[E] CC1101 connection error — check wiring and power supply"));
     while (1);
   }
   Serial.println(F("[I] CC1101 connected."));
@@ -58,6 +63,9 @@ void setup() {
   if (!Smartcc1101.setRX()) {
     Serial.print(F("[E] setRX failed, error code: "));
     Serial.println(Smartcc1101.getLastError());
+    // If getCC1101() passed but setRX() fails, the chip stopped responding.
+    // A transient glitch may resolve with init(), but a hardware fault
+    // (loose wire, power issue) is equally likely — check both.
     while (1);
   }
   Serial.println(F("[I] Listening on 868.35 MHz..."));
@@ -83,6 +91,9 @@ void loop() {
   if (!Smartcc1101.setRX()) {
     Serial.print(F("[E] setRX failed, error code: "));
     Serial.println(Smartcc1101.getLastError());
+    // Transient glitch: clearError() + init() may recover.
+    // Persistent errors most likely indicate a hardware fault — check wiring.
     Smartcc1101.clearError();
+    // Smartcc1101.init();  // uncomment to attempt recovery
   }
 }

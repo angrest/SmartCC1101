@@ -67,7 +67,12 @@ void setup() {
   Smartcc1101.init();
 
   if (!Smartcc1101.getCC1101()) {
-    Serial.println(F("[E] CC1101 connection error — check wiring"));
+    // SPI communication failed. This is almost always a hardware problem:
+    //   - CC1101 requires 3.3 V — use a level shifter with 5 V boards
+    //   - Check VCC, GND, and all four SPI wires (SCK, MISO, MOSI, CS)
+    //   - Cold solder joints and loose jumper wires are common culprits
+    // Calling init() again will not help until the hardware issue is resolved.
+    Serial.println(F("[E] CC1101 connection error — check wiring and power supply"));
     while (1);
   }
   Serial.println(F("[I] CC1101 connected."));
@@ -106,10 +111,17 @@ void loop() {
   // --- Transmit ---
   // sendData() accepts a raw byte pointer and the number of bytes to send.
   // It wakes the CC1101 automatically — no explicit wakeup call needed.
-  Smartcc1101.sendData(reinterpret_cast<const uint8_t *>(&pkt), sizeof(pkt));
-
-  Serial.print(F("Sent packet #"));
-  Serial.println(pkt.counter);
+  // The return value is checked here; in a minimal sketch it can be ignored.
+  if (Smartcc1101.sendData(reinterpret_cast<const uint8_t *>(&pkt), sizeof(pkt))) {
+    Serial.print(F("Sent packet #"));
+    Serial.println(pkt.counter);
+  } else {
+    Serial.print(F("[E] Send failed, error code: "));
+    Serial.println(Smartcc1101.getLastError());
+    // Error 1 (err_SPI_TIMEOUT): hardware fault — check wiring and power supply.
+    // Errors 2-4: may be transient; clearError() + init() is worth trying once.
+    Smartcc1101.clearError();
+  }
 
   // --- Power down the CC1101 (~200 nA) until the next transmission ---
   // The next sendData() call will wake it and restore all registers automatically.
