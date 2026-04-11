@@ -32,3 +32,5 @@ Makefile
 *.exe
 *.out
 *.app
+src/EspMQTTClient/
+*.txt
