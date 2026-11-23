@@ -1,316 +1,170 @@
 # SmartCC1101
-This driver library offers a simple access to data transfer using the **CC1101** module. It gives access to many configuration options without need to use RFStudio.
-## Basic Function
-This library was mainly implemented to efficiently send data from decentral battery powered sensors to a central hub. Howwever it may as well be used for bi-directional communication between several nodes.
-The maximum amount of data which can be be sent in a single transfer is limited to the size of the internal buffer of the **CC1101**, leading to a possible payload of 61 bytes.
-The code was designed to have a small memory footprint and runs fine on an Arduino Pro Mini (ATMega328p). However, for a single caclulation, floating point math is needed, excluding platforms like ATTiny. In a future version, I might re-implement the offending algortihm to integer math tpo remove the restriction. Besides that, no specific platform-dependant code is used and the library should behave well everywhere else (although it is only explicitely testetd on Arduino Pro Mini and ESP8266).
-## Wiring
-I promise I will add some drawings later on, but for now, I'll stick with the pin numbers - which are standard pins for SPI connections on the boards mentioneed.
 
-### **CC1101**
-If the module lays with the antenna connectors to the top, on the lower connection pins are from left to right:
-+ VCC
-+ GND
-+ COPI (may also be called MOSI)
-+ SCK (or SCLK)
-+ CIPO (or MISO)
-+ GDO2 (unused)
-+ GDO0 (unused)
-+ CS (or CSN)
+[![Arduino Lint](https://github.com/angrest/SmartCC1101/actions/workflows/arduino-checks.yml/badge.svg)](https://github.com/angrest/SmartCC1101/actions/workflows/arduino-checks.yml)
+[![Compile (Uno)](https://github.com/angrest/SmartCC1101/actions/workflows/arduino-checks.yml/badge.svg?job=compile-avr)](https://github.com/angrest/SmartCC1101/actions/workflows/arduino-checks.yml)
+[![Compile (ESP32)](https://github.com/angrest/SmartCC1101/actions/workflows/arduino-checks.yml/badge.svg?job=compile-esp32)](https://github.com/angrest/SmartCC1101/actions/workflows/arduino-checks.yml)
+[![Compile (ESP8266)](https://github.com/angrest/SmartCC1101/actions/workflows/arduino-checks.yml/badge.svg?job=compile-esp8266)](https://github.com/angrest/SmartCC1101/actions/workflows/arduino-checks.yml)
 
-> [!IMPORTANT]
-> The modules usually support voltages from 1.8V to 3.6V, so please use a level converter when connecting to a 5V CPU board.
+Arduino library for the CC1101/CC1100 sub-GHz RF transceiver module.
 
-Also, be careful when soldering the connections, I have grilled several **CC1101** modules...
+Provides straightforward access to sending and receiving data, with full control over the CC1101's configuration registers — without needing TI's SmartRF Studio.
 
-### Processor boards
-**Arduino Pro Mini (ATMega328p)**
-+ SCK 13
-+ CIPO 12
-+ COPI 11
-+ CS 10
+## Features
 
-**ESP8266**
-+ SCK 14
-+ CIPO 12
-+ COPI 13
-+ CS 15
+- Supports 300–348 MHz, 387–464 MHz, and 779–928 MHz bands (868 MHz tested; 433 MHz supported in hardware but not yet field-tested)
+- Automatic band-specific register patching when switching between 868 MHz and 433 MHz
+- Configurable modulation (2-FSK, GFSK, ASK/OOK, 4-FSK, MSK)
+- Variable or fixed packet length mode (max. 61 bytes payload)
+- CRC check, data whitening, Manchester encoding, FEC
+- Low memory footprint — runs on Arduino Nano/Pro Mini
+- No floating point operations and no `<stdio.h>` formatted I/O (`printf`/`sprintf`) — safe for AVR targets with limited flash
+- Custom delay function support (e.g. for RTOS integration)
 
-**ESP32**
-+ SCK 18
-+ CIPO 19
-+ COPI 23
-+ CS 5
+## Supported Boards
 
-**Arduino** 
-+ SCK 13
-+ CIPO 12
-+ COPI 11
-+ CS 10
+| Architecture | Example boards |
+|---|---|
+| AVR | Arduino Uno, Nano, Pro Mini, Mega |
+| ESP8266 | NodeMCU, Wemos D1 |
+| ESP32 | ESP32 DevKit |
 
+## Installation
 
-> [!NOTE]
-> ESP32 and (to a limited extent) ESP8266 support custom SPI pinout. If, for some reason, you need a custom pin configurations, you have to edit the [library header file](src/SmartCC1101.h) directly for the time being. Later versions may support user-specified SPI configurations.
+### Arduino Library Manager (recommended)
+1. Open Arduino IDE → **Sketch → Include Library → Manage Libraries**
+2. Search for `SmartCC1101`
+3. Click **Install**
 
-## Programming
-The following code implements a simple [sender](./examples/Sender/Sender.ino) and is available in the  [examples folder](./examples/).
+### Manual
+1. Download the [latest release](https://github.com/angrest/SmartCC1101/releases)
+2. Arduino IDE → **Sketch → Include Library → Add .ZIP Library**
 
-The settings are not limited to the `setup()` and may be changed anytime in the `loop()` if needed.
+## Wiring (SPI)
 
-```C++
+| CC1101 | Arduino Uno/Nano | ESP8266 | ESP32 |
+|--------|-----------------|---------|-------|
+| VCC    | 3.3V            | 3.3V    | 3.3V  |
+| GND    | GND             | GND     | GND   |
+| SCK    | D13             | D14     | D18   |
+| MISO   | D12             | D12     | D19   |
+| MOSI   | D11             | D13     | D23   |
+| CSN    | D10             | D15     | D5    |
 
+> **Note:** The CC1101 is a 3.3V device. Use a level shifter when connecting to 5V boards.
+
+## Quick Start
+
+```cpp
 #include <SmartCC1101.h>
 
 void setup() {
-  Serial.begin(115200);
+  Smartcc1101.init();
 
-  SmartCC1101.init();  // must be called first to initialize the **CC1101**
-
-  if (SmartCC1101.get**CC1101**()) {  // Check the **CC1101** SPI connection.
-    Serial.println(F("[I] **CC1101** connected."));
-  } else {
-    Serial.println(F("[E] *** **CC1101** connection Error ***"));
-    delay(20000);
+  if (!Smartcc1101.getCC1101()) {
+    // SPI connection failed — check wiring
+    while (1);
   }
 
-  SmartCC1101.setSymbolRate(100000);                        // Set the Data Rate to 10kBaud
-  SmartCC1101.setManchester(true);                          // Enable Manchester encoding/decoding.
-  SmartCC1101.setWhiteData(true);                           // Turn data whitening on.
-  SmartCC1101.setCRCCheck(true);                            // CRC calculation in TX and CRC check in RX enabled.
+  Smartcc1101.setCarrierFrequency(868350000);  // 868.35 MHz
+  Smartcc1101.setCRCCheck(true);
 }
 
+// Sender
 void loop() {
-
-  const char messageText[] = "Hello world!";
-  // Send data. Returns when data is actually sent.
-  SmartCC1101.sendData(messageText);
-
-  // Wait for a second untill next data sent.
+  Smartcc1101.sendData("Hello world!");
   delay(1000);
 }
 
-```
-
-The corresponding [receiver](./examples/Receiver/Receiver.ino) (also available in the [examples folder](./examples/)):
-
-```C++
-
-#include <SmartCC1101.h>
-
-void setup() {
-  Serial.begin(115200);
-
-  SmartCC1101.init();  // must be called first to initialize the **CC1101**
-
-  if (SmartCC1101.get**CC1101**()) {  // Check the **CC1101** SPI connection.
-    Serial.println(F("[I] **CC1101** connected."));
-  } else {
-    Serial.println(F("[E] *** **CC1101** connection Error ***"));
-    delay(20000);
-  }
-
-  SmartCC1101.setRXBandWitdth(SmartCC1101::bw_812kHz);      // Set the Receive Bandwidth to 812 kHz
-  SmartCC1101.setSymbolRate(100000);                        // Set the Data Rate to 10 kBaud
-  SmartCC1101.setManchester(true);                          // Enables Manchester encoding/decoding.
-  SmartCC1101.setWhiteData(true);                           // Turn data whitening on.
-  SmartCC1101.setCRCCheck(true);                            // CRC calculation in TX and CRC check in RX enabled. 
-}
-
-
+// Receiver
 void loop() {
-  uint8_t buffer[61]{ 0 };  // buffer for the data received by **CC1101**
-
-  int len = SmartCC1101.receiveData(buffer);  // len will be 0 if nothing is yet received.
-
+  uint8_t buffer[61];
+  uint8_t len = Smartcc1101.receiveData(buffer);
   if (len > 0) {
-    Serial.print(len);
-    Serial.println(" bytes received.");
-
-    // check transfer quality parameters
-    int8_t RSSI = SmartCC1101.getRSSI();
-    bool CRC = SmartCC1101.checkCRC();
-    uint8_t LQI = SmartCC1101.getLQI();
-
-    // will try to interpret the buffer received as character array, just make sure it's zero-terminated.
-    // if it was actually sent from a character array, this is not necessary
-    buffer[len] = 0;
-
-    // check if crc is correct
-    if (CRC) {
-      Serial.println("CRC ok.");
-      Serial.println("Data:");
-      Serial.println((char *)buffer);
-    } else {
-      Serial.println("CRC Error.");
-    }
-    Serial.println("RSSI: ");
-    Serial.print(RSSI);
-    Serial.print("dB, LQI ");
-    Serial.println(LQI);
+    buffer[len] = 0;  // null-terminate for use as string
+    Serial.println((char *)buffer);
   }
 }
-
 ```
 
-## Function reference
-If you need more detailed information, please check the [CC1101 data sheet](https://www.ti.com/lit/ds/symlink/cc1101.pdf).
+See `examples/Sender` and `examples/Receiver` for full examples.
 
-### Functions in alphabetic order:
+## API Overview
 
-`bool checkCRC(void)` Check if CRC is correct. Returns `true` if CRCs match in last transmission. Only meaningful after data is received via `receiveData()`.
+### Initialization
+| Function | Description |
+|---|---|
+| `init(csPin, sckPin, cipoPin, copiPin, spi)` | Initialize SPI and reset CC1101. All parameters optional, defaults to platform-specific pins and the default `SPI` bus. Pass a custom `SPIClass` instance to use a different SPI bus (e.g. `HSPI` on ESP32). On AVR, only `csPin` is configurable — SPI pins are hardware-fixed. |
+| `getCC1101()` | Returns `true` if CC1101 is reachable via SPI. |
 
-`bool getCC1101(void)` checks for the presence of a **CC1101** module on the SPI bus.
+### Radio Configuration
+| Function | Description |
+|---|---|
+| `setCarrierFrequency(uint32_t hz)` | Frequency in Hz. Supported: 300–348, 387–464, 779–928 MHz. |
+| `setModulation(Modulation m)` | `mod_2FSK`, `mod_GFSK`, `mod_ASKOOK`, `mod_4FSK`, `mod_MSK` |
+| `setPA(int8_t dBm)` | TX power: -30, -20, -15, -10, -6, 0, 5, 7, 10, 11, 12 dBm |
+| `setRXBandwidth(rx_BandWidth bw)` | RX filter bandwidth: `bw_58kHz` … `bw_812kHz` |
+| `setSymbolRate(uint32_t baud)` | Data rate: 20 – 1,621,830 Baud |
+| `setDeviation(uint32_t hz)` | FSK frequency deviation: 1586 – 380,850 Hz |
 
-`uint8_t getLQI(void)` Link Quality Indicator. The Link Quality Indicator is a metric of the current quality of the received signal (smaller is better). When called after data is received via `receiveData()`. LQI corresponds to the data received. If called intermittently, returns the current link quality.
+### Packet Configuration
+| Function | Description |
+|---|---|
+| `setSyncWord(uint8_t h, uint8_t l)` | Sync word (must match sender and receiver) |
+| `setSyncMode(sync_Mode m)` | Sync word detection mode |
+| `setPRE(preamble_Bytes p)` | Number of preamble bytes |
+| `setLengthConfig(PacketLengthConfig c)` | `pktl_FIXED` or `pktl_VARIABLE` |
+| `setPacketLength(uint8_t len)` | Max/fixed packet length (max. 61) |
+| `setCRCCheck(bool)` | Enable CRC |
+| `setCRC_AF(bool)` | Auto-flush RX FIFO on CRC error |
+| `setManchester(bool)` | Manchester encoding |
+| `setWhiteData(bool)` | Data whitening |
+| `setFEC(bool)` | Forward Error Correction (fixed length only) |
 
-`int8_t getRSSI(void)` Received Signal Strength Indicator. The value is the estimated signal strength in dBm. When called after data is received via `receiveData()`. RSSI corresponds to the data received. If called intermittently, returns the current signal strength.
+### Send / Receive
+| Function | Description |
+|---|---|
+| `sendData(const char*)` | Send null-terminated string (max. 61 bytes, must not be NULL). Returns `false` on error. |
+| `sendData(const uint8_t*, uint8_t)` | Send byte array. Returns `false` on error. In fixed length mode exactly the configured packet length is sent (longer data truncated, shorter data zero-padded). |
+| `setRX()` | Switch to RX mode. Returns `false` on error. |
+| `receiveData(uint8_t*)` | Read received data. Buffer must be ≥ 61 bytes. Returns number of bytes received, 0 if nothing valid was received (still in RX, FIFO overflow, CRC error with `setCRC_AF(true)`, SPI error). |
+| `getRSSI()` | RSSI in dBm (typically -140 to 0) |
+| `getLQI()` | Link Quality Indicator 0–127 (lower is better) |
+| `checkCRC()` | `true` if last received packet had valid CRC |
 
-`void init(void)` must be called prior to using any other function. Will establish the necessary setup of the **CC1101** chip. Only exception: `getCC1101()` may be called prior to `init()`.
+### Error Handling
+| Function | Description |
+|---|---|
+| `getLastError()` | Returns the last `ErrorCode`: `err_NONE`, `err_SPI_TIMEOUT`, `err_IDLE_TIMEOUT`, `err_TX_TIMEOUT`, `err_CALIB_TIMEOUT` |
+| `clearError()` | Clears the error flag before retrying |
 
-`uint8_t receiveData(uint8_t *rxBuffer)` Check if data is received and copy it to rxBuffer. Returns 0 if no data is received yet, transmission is in progress or CRC wrong and `void setCRC_AF(true)`. If data was received, `setRX()`must be called again.
+`sendData()` and `setRX()` return `false` on failure and set an error code. The library does **not** attempt automatic recovery.
 
-`void sendData(const char *txBuffer)` Sends the zero-terminated character string pointed to. Will return when data is sent. Must be max 61 characters including the trailing 0.
+`err_SPI_TIMEOUT` indicates that MISO did not respond — this points to a hardware problem (loose connection, cold solder joint, missing power). Calling `init()` will not fix this; inspect the wiring first. `err_IDLE_TIMEOUT`, `err_TX_TIMEOUT`, and `err_CALIB_TIMEOUT` can in principle occur after a transient glitch; calling `clearError()` followed by `init()` is worth trying, but a hardware fault cannot be ruled out.
 
-`void sendData(const uint8_t *txBuffer, uint8_t size)` Sends size bytes pointed to by txBuffer. Must be max. 61 bytes.
+Discarding the return value of `sendData()` / `setRX()` is valid C++ — existing code requires no changes.
 
-`void setAddr(uint8_t addr)` On TX, sets the address of the package to be sent. On RX, determines from which address are acceptes if address check is enabled with `setAddrCheck`.
+### Power Management
+| Function | Description |
+|---|---|
+| `sleep()` | Enter power-down mode. Wake-up is automatic on the next `sendData()` or `setRX()` call. |
 
-`void setAdrChk(AddressCheck adc)` Controls address check for received packages.
-| Value | Address check configuration |
-|------------|-------|
-|   adc_NO | No address check (default) |
-|  adc_YESNOBC | Address check, no broadcast |
-|  adc_YES0BC | Address check and 0 (0x00) broadcast |
-|  adc_YES0FFBC | Address check and 0 (0x00) and 255 (0xFF) broadcast |
+## Known Limitations
 
-`void setCarrierFrequency(uint32_t freq)` Set tranmsision frequency in Hz. Default = 868.35 MHz). The **CC1101** can use the frequenciy ranges 300-348 MHZ, 387-464 MHZ and 779-928 MHZ.
-> [!WARNING]
-> Please respect local regulations.
+- GDO pin-based communication is not implemented
+- Maximum payload per transmission: 61 bytes
+- Infinite packet length mode is not supported
+- 315 MHz band register values are not patched (SmartRF Studio values needed)
 
-> [!IMPORTANT]
-> Must match sender and receiver.
+## Crystal Frequency
 
-> [!NOTE]
-> The effective carrier frequencies are quantized, the function will set it to the next possible lower value.
+Most CC1101 modules use a **26 MHz** crystal (default). Some variants use **27 MHz**.
+Override at compile time if needed:
 
-`void setCRCCheck(bool crcc)` On TX, enables CRC to be added to the payload. On RX, will calculate the CRC of received data and compare with CRC transmitted. Defaults to `false`.
+```cpp
+// platformio.ini
+build_flags = -DCC1101_CRYSTAL_FREQUENCY=27000000ul
+```
 
-`void setCRC_AF(bool af)` Autoflushes RX buffer if CRC check fails (if `setCRCCheck(true)`). Has no effect if `setCRCCheck(false)`.
+## License
 
-`void setDCFilterOff(bool dcf)` Disable digital DC blocking filter before demodulator. Only for data rates ≤ 250 kBaud. The recommended IF frequency changes when the DC blocking is disabled. true = Disable (current optimized), false = Enable (better sensitivity).
-
-`void setDelayFunction(void delayFunc(uint8_t))` The function supplied will be called repeatedly while waiting from the transmission to finish in `sendData()`. It must support a single parameter of type `uint8_t`, which is the delay in ms. If not set, `delay()` will be called. Should be needed only in very special caeses.
-
-`void setDeviation(uint32_t deviation)` Set the frequency deviation in Hz. Possible values from 1586 to 380850. Default is 47607 Hz. 
-> [!NOTE]
-> the effective deviation values are quantized and algorithm rounds down. Using the exact interval limits, the next lower value might be taken (e.g. for 47607, you must actually specify 4760**8**).
-
-`void setFEC(bool fec)` Enable forward error correction. Only supported in fixed packet length mode (`PacketLengthConfig(pktl_FIXED)`) and `setCRCCheck(true)`.
-
-`void setManchester(bool menc)` Enable Manchester encoding. Defaults to `false`. 
-> [!IMPORTANT]
-> Must match sender and receiver.
-
-
-`void setModulation(Modulation m)` Set modulation mode. I nearly exclusively use 2FSK modulation.
-> [!IMPORTANT]
-> Must match sender and receiver.
-
-| Value | Modulation |
-|------------|-------|
-|mod_2FSK| 2FSK modulation (default)|
-|mod_GFSK| GFSK modulation|
-|mod_ASKOOK| ASK/OOK modulation (untested)|
-|mod_4FSK| 4FSK modulation|
-|mod_MSK| MFSK modulation|
-
-
-`void setLengthConfig(PacketLengthConfig pktl)` From the different options the CC11101 supports in hardware, only the following two options are imlemented in this driver:
-| Value | Packet length configuration |
-|------------|-------|
-|   pktl_FIXED | fixed packet length as configured by `setLengthConfig()` |
-|   pktl_VARIABLE | Variable packet length |
-
- `void setPA(int8_t pa)` Set TXPower in dB. The following settings are possible depending on the frequency band: -30,  -20,  -15,  -10,  -6,    0,    5,    7,    10,   11,   12. Default is max. 
-> [!WARNING]
-> Please respect local regulations.
-
-> [!NOTE]
-> The effective PA values are quantized, the function will set it to the next possible lower value.
-
-`void setPacketLength(uint8_t len)` Packet lentgh when `setLengthConfig(pktl_FIXED)`. On variable packet length, configures maximum packet length (optional). Defaults to 0.
-
-  `void setPktFormat(PacketFormat pktf)` Although the **CC1101** supports different packet formats, only "normal" and RANDOM_TX are supported.
-| Value | Packet format |
-|------------|-------|
-|    pktf_NORMAL  | Normal mode, use FIFOs for RX and TX (default)|
-|   pktf_RANDOMTX | sends random data using PN9 generator. Used for test. Works as normal mode, setting 0 (00) in RX |
-
-`void setPRE(preamble_Bytes pre)` When enabling TX, the modulator will start transmitting the preamble. When the programmed number of preamble bytes has been transmitted, the modulator will send the sync word and then data from the TX FIFO.  
-> [!IMPORTANT]
-> Must match sender and receiver.
-
-| Value | Preamble Bytes |
-|------------|-------|
-|    pre_2  |2 preamble bytes |
-|    pre_3  | 3 preamble bytes |
-|    pre_4  | 4 preamble bytes (default) |
-|    pre_6  | 6 preamble bytes |
-|    pre_8  | 8 preamble bytes |
-|    pre_12  | 12 preamble bytes |
-|    pre_16  | 16 preamble bytes |
-|    pre_24 = |/ 24 preamble bytes |
-
-
-`void setPQT(uint8_t pqt)` The preamble quality estimator increases an internal counter by one each time a bit is received that is different from the previous bit, and decreases the counter by eight each time a bit is received that is the same as the last bit. A threshold of 4∙PQT for this counter is used to gate sync word detection. By setting the value to zero, the preamble quality qualifier of the sync word is disabled. Defaults to 0.
-
-`void setRX(void)` Set the **CC1101** to RX mode. Repeated calls do not have any effect, unless data was received in the meantime. If the internal buffer is not read via `receiveData()`, the data is lost.
-
-`void setRXBandWitdth(rx_BandWidth bw)` Set the Receive Bandwidth. Value can be cosen from predefined list of values:   
-| Bandwidth | Value   |
-|----------|---------|
-| 58 KHz | bw_58kHz |
-| 68 kHz | bw_68kHz |
-| 81 kHz | bw_81kHz |
-| 102 kHz | bw_102kHz |
-| 116 kHz | bw_116kHz |
-| 135 kHz | bw_135kHz |
-| 203 kHz | bw_203kHz (default) |
-| 232 kHz | bw_232kHz |
-| 270 kHz | bw_270kHz |
-| 325 kHz | bw_325kHz |
-| 406 kHz | bw_406kHz |
-| 464 kHz | bw_464kHz |
-| 541 kHz | bw_541kHz |
-| 650 kHz | bw_650kHz |
-| 812 kHz | bw_812kHz |
-
-`void setSymbolRate(double symbolRate)` Data transmission rate in baud. Value from 20 to 1621830 Default is 115051 Baud. 
-> [!IMPORTANT]
-> Must match on sender and receiver.
-
-> [!NOTE]
-> The effective symbol rates are quantized, the function will set it to the next possible lower value.
-  
-`void setSyncMode(sync_Mode syncm)` Combined sync-word qualifier mode.  The hardware supports carrier sense with abolute and relative thresholds as well, but this is not implemented.
->[!IMPORTANT]
-> `sync_3032` enables duplicate transmission of the sync word in TX. This must match the setting in RX, so chose `sync_3032` here as well.
-
-| Value | Sync-Mode |
-|------------|-------|
-|    sync_NONE | No preamble/sync |
-|    sync_1516 | 15/16 sync word bits detected |
-|    sync_1616 | 16/16 sync word bits detected (default)|
-|    sync_3032 | 30/32 sync word bits detected |
-
-`void setSyncWord(uint8_t sh, uint8_t sl)` If sync-word detection is enabled via setSyncMode,the **CC1101** will not start filling the RX FIFO unless a valid sync word is detected. 
-> [!IMPORTANT]
-> Must match on sender and receiver.
-
-`void setWhiteData(bool white)` Enable data whitening. Defaults to `false`. 
-> [!IMPORTANT]
-> Must match on sender and receiver.
-
-`void sleep(void)` Sets the **CC1101** to sleep mode, reducing power consumption. The next access will wake the chip up again, no special procedure is needed.
-
-
+MIT License — Copyright (c) 2024 Axel Grewe

@@ -34,17 +34,20 @@
 *
 * @note GDO based communication is not implemented.
 * @note The number of bytes to send/receive in a single transmission is limited to 61 bytes.
+* @note The default register configuration is optimized for 868 MHz operation.
+*       When calling setCarrierFrequency() with a 433 MHz frequency, band-specific
+*       registers (FSCTRL1, FOCCFG, BSCFG, AGCCTRLx, FREND1) are automatically
+*       patched with values derived from CC1101 datasheet formulas and TI application notes.
+*       Switching back to 868/915 MHz restores the original values.
+*       315 MHz band registers are not patched (SmartRF Studio values needed).
 */
 
 
-#ifndef SmartCC1101_SRC_DRV_h
-#define SmartCC1101_SRC_DRV_h
+#ifndef SMARTCC1101_H
+#define SMARTCC1101_H
 
 #include <Arduino.h>
 #include <SPI.h>
-
-
-#include <Arduino.h>
 
 /**
 * define SPI pins 
@@ -181,10 +184,13 @@
 #define WRITE_BURST 0x40      //write burst
 #define READ_SINGLE 0x80      //read single
 #define READ_BURST 0xC0       //read burst
-#define BYTES_IN_RXFIFO 0x3F  //max bytes in RXfifo
+#define BYTES_IN_RXFIFO 0x7F  //NUM_RXBYTES mask (bits 6:0) of RXBYTES
 
 /**
-* Most modules come with 26Mhz crystal
+* Crystal frequency. Most CC1101 modules use a 26 MHz crystal.
+* Some modules (e.g. certain eBay/AliExpress variants) use 27 MHz.
+* Override at compile time if needed:
+*   -DCC1101_CRYSTAL_FREQUENCY=27000000ul
 */
 #ifndef CC1101_CRYSTAL_FREQUENCY
 #define CC1101_CRYSTAL_FREQUENCY 26000000ul
@@ -196,12 +202,29 @@
 class SmartCC1101 {
 
 public:
-  void setDelayFunction(void delayFunc(uint8_t));
-  void smartDelay(uint8_t ms);
-  void init(void);
+  void init(uint8_t csPin   = CS_PIN,
+            uint8_t sckPin  = SCK_PIN,
+            uint8_t cipoPin = CIPO_PIN,
+            uint8_t copiPin = COPI_PIN,
+            SPIClass& spi   = SPI);
   bool getCC1101(void);
+
+  /** Error codes returned by getLastError(). */
+  enum ErrorCode : uint8_t {
+    err_NONE = 0,
+    err_SPI_TIMEOUT,    ///< MISO did not go low — check wiring/power supply
+    err_IDLE_TIMEOUT,   ///< chip did not reach IDLE within 100 ms
+    err_TX_TIMEOUT,     ///< TX did not complete within 500 ms
+    err_CALIB_TIMEOUT,  ///< frequency synthesizer calibration did not finish within 50 ms
+  };
+  /** Returns the last error set by a failed operation. */
+  ErrorCode getLastError(void);
+  /** Clears the error flag so the next operation starts fresh. */
+  void clearError(void);
+
+  /** Put CC1101 into power-down mode (~200 nA). Wakeup is automatic on the
+   *  next sendData(), setRX(), or receiveData() call. */
   void sleep(void);
-  void onWakeup(void);
   void setDCFilterOff(bool dcf);
   void setCarrierFrequency(uint32_t freq);
   enum rx_BandWidth : uint8_t {
@@ -222,7 +245,7 @@ public:
     bw_650kHz = 0b00010000,
     bw_812kHz = 0b00000000
   };
-  void setRXBandWitdth(rx_BandWidth bw);
+  void setRXBandwidth(rx_BandWidth bw);
   enum Modulation : uint8_t {
     mod_2FSK = 0b00000000,
     mod_GFSK = 0b00010000,
@@ -289,19 +312,19 @@ public:
   void setPacketLength(uint8_t len);
   void setWhiteData(bool white);
   void setManchester(bool menc);
-  void setSymbolRate(double symbolRate);
+  void setSymbolRate(uint32_t symbolRate);
 
-  void sendData(const char *txBuffer);
-  void sendData(const uint8_t *txBuffer, uint8_t size);
+  bool sendData(const char *txBuffer);
+  bool sendData(const uint8_t *txBuffer, uint8_t size);
 
   int8_t getRSSI(void);
   bool checkCRC(void);
   uint8_t getLQI(void);
-  void setRX(void);
+  bool setRX(void);
   uint8_t receiveData(uint8_t *rxBuffer);
 
 private:
-  void waitCIPO(void);
+  bool waitCIPO(void);
   void chipSelect(void);
   void chipDeselect(void);
   uint8_t readRegister(uint8_t addr);
@@ -318,28 +341,34 @@ private:
     state_TXFIFO_UNDERFLOW = 0b111
   };
   chipState getState(void);
-  void writeRegister(uint8_t addr, uint8_t value, const char *str = __builtin_FUNCTION());
-  void writeBurstRegister(uint8_t addr, const uint8_t *buffer, uint8_t num, const char *str = __builtin_FUNCTION());
+  void writeRegister(uint8_t addr, uint8_t value);
+  void writeBurstRegister(uint8_t addr, const uint8_t *buffer, uint8_t num);
+  void writeBurstRegister_P(uint8_t addr, const uint8_t *buffer, uint8_t num);
   uint8_t strobe(uint8_t strobe);
-  void setIDLEState(void);
+  bool setIDLEState(void);
+  void onWakeup(void);
   void reset(void);
   void configCC1101(void);
-  void calibrate(void);
   int8_t getRSSI(uint8_t rawValue);
   bool checkCRC(uint8_t rawValue);
   uint8_t getLQI(uint8_t rawValue);
 
+  uint8_t csPin_   = CS_PIN;
+  uint8_t sckPin_  = SCK_PIN;
+  uint8_t cipoPin_ = CIPO_PIN;
+  uint8_t copiPin_ = COPI_PIN;
+  SPIClass* spi_   = &SPI;
+
   enum Modulation modulation = mod_2FSK;
-  uint8_t frend0;
+  uint8_t frend0 = 0x10;  // default: PA index 0, set to 0x11 for ASK/OOK
   int8_t pa = 12;
   bool sleepState = false;
-  uint32_t cfreq = 886350000;
+  ErrorCode lastError_ = err_NONE;
+  uint32_t cfreq = 868350000;
   bool crc;
   uint8_t lqi;
   int8_t rssi;
 
-  typedef void delayfunction(uint8_t);
-  delayfunction *delayFunc = NULL;
 
 #ifdef SPI_HAS_TRANSACTION
   SPISettings mySPISettings;
