@@ -124,9 +124,9 @@ See `examples/Sender` and `examples/Receiver` for full examples.
 | Function | Description |
 |---|---|
 | `sendData(const char*)` | Send null-terminated string (max. 61 bytes, must not be NULL). Returns `false` on error. |
-| `sendData(const uint8_t*, uint8_t)` | Send byte array. Returns `false` on error. |
+| `sendData(const uint8_t*, uint8_t)` | Send byte array. Returns `false` on error. In fixed length mode exactly the configured packet length is sent (longer data truncated, shorter data zero-padded). |
 | `setRX()` | Switch to RX mode. Returns `false` on error. |
-| `receiveData(uint8_t*)` | Read received data. Buffer must be ≥ 61 bytes. Returns number of bytes received. |
+| `receiveData(uint8_t*)` | Read received data. Buffer must be ≥ 61 bytes. Returns number of bytes received, 0 if nothing valid was received (still in RX, FIFO overflow, CRC error with `setCRC_AF(true)`, SPI error). |
 | `getRSSI()` | RSSI in dBm (typically -140 to 0) |
 | `getLQI()` | Link Quality Indicator 0–127 (lower is better) |
 | `checkCRC()` | `true` if last received packet had valid CRC |

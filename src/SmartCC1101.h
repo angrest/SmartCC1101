@@ -184,7 +184,7 @@
 #define WRITE_BURST 0x40      //write burst
 #define READ_SINGLE 0x80      //read single
 #define READ_BURST 0xC0       //read burst
-#define BYTES_IN_RXFIFO 0x3F  //max bytes in RXfifo
+#define BYTES_IN_RXFIFO 0x7F  //NUM_RXBYTES mask (bits 6:0) of RXBYTES
 
 /**
 * Crystal frequency. Most CC1101 modules use a 26 MHz crystal.

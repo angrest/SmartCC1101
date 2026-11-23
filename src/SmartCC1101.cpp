@@ -450,8 +450,12 @@ void SmartCC1101::configCC1101(void) {
   // Registers that are cleared on sleep are handled by onWakeup()
   onWakeup();
 
-  // Frequency registers 0x0D-0x0F are written by setCarrierFrequency()
-  setCarrierFrequency(cfreq);
+  // Frequency registers 0x0D-0x0F are written by setCarrierFrequency().
+  // The table above holds 868 MHz band values, so tell setCarrierFrequency()
+  // the chip is on 868 MHz; a re-init on 433 MHz then re-applies the 433 patch.
+  uint32_t f = cfreq;
+  cfreq = 868350000;
+  setCarrierFrequency(f);
 }
 
 
@@ -629,7 +633,8 @@ static const uint8_t CC1101_BAND_868[] PROGMEM = {
 
 /**
 * Set the carrier frequency.
-* Automatically applies band-specific register settings when crossing band boundaries.
+* Automatically applies band-specific register settings when crossing band boundaries
+* and re-applies the PA power set by setPA() using the table for the new band.
 * @param frequency Frequency in Hz. Supported bands: 300-348, 387-464, 779-928 MHz.
 * @return none
 */
@@ -638,6 +643,8 @@ void SmartCC1101::setCarrierFrequency(uint32_t frequency) {
   // Detect band change and apply band-specific patch registers
   bool was433 = (cfreq >= 378000000 && cfreq <= 464000000);
   bool is433  = (frequency >= 378000000 && frequency <= 464000000);
+
+  setIDLEState();
 
   if (was433 != is433) {
     const uint8_t *patch = is433 ? CC1101_BAND_433 : CC1101_BAND_868;
@@ -651,13 +658,14 @@ void SmartCC1101::setCarrierFrequency(uint32_t frequency) {
   // Calculate the frequency register value using 64-bit arithmetic to prevent overflow
   uint32_t frequencyRegisterValue = ((uint64_t)frequency << 16) / CC1101_CRYSTAL_FREQUENCY;
 
-  setIDLEState();
-
   writeRegister(CC1101_FREQ2, (frequencyRegisterValue >> 16) & 0xFF);
   writeRegister(CC1101_FREQ1, (frequencyRegisterValue >> 8) & 0xFF);
   writeRegister(CC1101_FREQ0, frequencyRegisterValue & 0xFF);
 
   cfreq = frequency;
+
+  // PA table values are band specific
+  setPA(pa);
 }
 
 
@@ -860,9 +868,9 @@ void SmartCC1101::setSyncMode(sync_Mode syncm) {
 * Sets the minimum number of preamble bytes to be transmitted. 
 * @param Preamble Bytes
 * Possible values:
-* pre_2
+* pre_2 (default)
 * pre_3
-* pre_4 (default)
+* pre_4
 * pre_6
 * pre_8
 * pre_12
@@ -1005,13 +1013,16 @@ void SmartCC1101::setDeviation(uint32_t deviation) {
 * @return true on success, false on error (check getLastError() for details)
 */
 bool SmartCC1101::sendData(const char *txBuffer) {
-  return sendData(reinterpret_cast<const uint8_t *>(txBuffer), (uint8_t)strlen(txBuffer));
+  size_t len = strlen(txBuffer);
+  return sendData(reinterpret_cast<const uint8_t *>(txBuffer), (uint8_t)(len > 61 ? 61 : len));
 }
 
 /**
 * Send data
 * @param txBuffer Data array to send
-* @param size Number of bytes to send, no more than 61
+* @param size Number of bytes to send, no more than 61.
+*             In fixed packet length mode exactly the configured packet length
+*             is sent: longer data is truncated, shorter data is zero-padded.
 * @return true on success, false on error (check getLastError() for details)
 */
 bool SmartCC1101::sendData(const uint8_t *txBuffer, uint8_t size) {
@@ -1023,8 +1034,20 @@ bool SmartCC1101::sendData(const uint8_t *txBuffer, uint8_t size) {
 
   if (!setIDLEState()) return false;
 
-  writeRegister(CC1101_TXFIFO, size);
-  writeBurstRegister(CC1101_TXFIFO, txBuffer, size);
+  // discard leftovers from an aborted transmission
+  strobe(CC1101_SFTX);
+
+  if ((readRegister(CC1101_PKTCTRL0) & 0b00000011) == pktl_FIXED) {
+    // fixed length: no length byte, the chip sends exactly PKTLEN bytes
+    uint8_t pktlen = readRegister(CC1101_PKTLEN);
+    if (size > pktlen) size = pktlen;
+    writeBurstRegister(CC1101_TXFIFO, txBuffer, size);
+    for (uint8_t i = size; i < pktlen; i++)
+      writeRegister(CC1101_TXFIFO, 0);
+  } else {
+    writeRegister(CC1101_TXFIFO, size);
+    writeBurstRegister(CC1101_TXFIFO, txBuffer, size);
+  }
   strobe(CC1101_STX);
 
   // Wait for calibration/settling to finish (typically < 1 ms).
@@ -1195,8 +1218,11 @@ uint8_t SmartCC1101::getLQI(uint8_t rawValue) {
 * @return number of bytes received, 0 if:
 * @li still RX'ing
 * @li RX FIFO overflow (FIFO content is not a consistent packet)
-* @li inconsistent state or
+* @li inconsistent state,
+* @li SPI error (check getLastError()) or
 * @li CRC error (if setCRC_AF(true))
+* @note RSSI, LQI and CRC status of the packet are only available if append
+*       status is enabled in PKTCTRL1 (default). Otherwise they read as 0/false.
 *
 */
 
@@ -1221,19 +1247,32 @@ uint8_t SmartCC1101::receiveData(uint8_t *rxBuffer) {
     return 0;
   }
 
-  // This is the total number of bytes in buffer including length byte plus RSSI and LQI
+  // Total number of bytes in the FIFO: optional length byte (variable length mode),
+  // payload and optional status bytes RSSI and LQI/CRC_OK (append status).
   uint8_t rxbytes = readStatusRegister(CC1101_RXBYTES) & BYTES_IN_RXFIFO;
 
-  if (rxbytes > 0) {
-    size = readRegister(CC1101_RXFIFO);  // this returns the payload length
-    uint8_t append = readRegister(CC1101_PKTCTRL1) & 0b00000100;
+  rssi = 0;
+  lqi = 0;
+  crc = false;
 
-    // payload must be total-3 and never exceed the 61 bytes the hardware can deliver,
-    // so a 61-byte rxBuffer is always sufficient
-    if ((size > 0) && (size <= 61) && (size == (rxbytes - 3))) {
+  if (rxbytes > 0) {
+    bool append = readRegister(CC1101_PKTCTRL1) & 0b00000100;
+    bool fixed = (readRegister(CC1101_PKTCTRL0) & 0b00000011) == pktl_FIXED;
+    uint8_t overhead = append ? 2 : 0;
+
+    if (fixed) {
+      size = readRegister(CC1101_PKTLEN);  // no length byte in the FIFO
+    } else {
+      size = readRegister(CC1101_RXFIFO);  // first FIFO byte is the payload length
+      overhead++;
+    }
+
+    // payload must match the FIFO fill level and never exceed the 61 bytes the
+    // hardware can deliver, so a 61-byte rxBuffer is always sufficient
+    if ((size > 0) && (size <= 61) && (size + overhead == rxbytes)) {
       readBurstRegister(CC1101_RXFIFO, rxBuffer, size);
-      if (append) {  // next two bytes are status in case appedStatus is set (which it should be)
-        uint8_t status[2];
+      if (append) {  // next two bytes are RSSI and LQI/CRC_OK
+        uint8_t status[2] = { 0, 0 };
         readBurstRegister(CC1101_RXFIFO, status, 2);
         rssi = getRSSI(status[0]);
         lqi = getLQI(status[1]);
@@ -1241,12 +1280,14 @@ uint8_t SmartCC1101::receiveData(uint8_t *rxBuffer) {
       }
     } else { // mismatch between register values
       size = 0;
-      rssi = 0;
-      lqi = 0;
-      crc = false;
     }
   } else {
     // if buffer is empty after transition for RX to IDLE, most probably CRC_AF was set and the buffer got cleared on a CRC error
+  }
+
+  // a failed SPI transfer leaves rxBuffer/status incomplete
+  if (lastError_ != err_NONE) {
+    size = 0;
     rssi = 0;
     lqi = 0;
     crc = false;
