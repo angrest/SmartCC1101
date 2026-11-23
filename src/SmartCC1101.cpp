@@ -1194,6 +1194,7 @@ uint8_t SmartCC1101::getLQI(uint8_t rawValue) {
 *             as the CC1101 hardware limits payload to a maximum of 61 bytes.
 * @return number of bytes received, 0 if:
 * @li still RX'ing
+* @li RX FIFO overflow (FIFO content is not a consistent packet)
 * @li inconsistent state or
 * @li CRC error (if setCRC_AF(true))
 *
@@ -1210,6 +1211,16 @@ uint8_t SmartCC1101::receiveData(uint8_t *rxBuffer) {
     return 0;
   }
 
+  // After an overflow the FIFO does not hold a consistent packet: length byte and
+  // status bytes come from arbitrary positions, so discard everything.
+  if (state == state_RXFIFO_OVERFLOW) {
+    strobe(CC1101_SFRX);
+    rssi = 0;
+    lqi = 0;
+    crc = false;
+    return 0;
+  }
+
   // This is the total number of bytes in buffer including length byte plus RSSI and LQI
   uint8_t rxbytes = readStatusRegister(CC1101_RXBYTES) & BYTES_IN_RXFIFO;
 
@@ -1217,8 +1228,9 @@ uint8_t SmartCC1101::receiveData(uint8_t *rxBuffer) {
     size = readRegister(CC1101_RXFIFO);  // this returns the payload length
     uint8_t append = readRegister(CC1101_PKTCTRL1) & 0b00000100;
 
-    if ((size > 0) && ((size == (rxbytes - 3)) || state == state_RXFIFO_OVERFLOW)) {
-      // payload should be total-3 except in buffer overflow condition, where total==1
+    // payload must be total-3 and never exceed the 61 bytes the hardware can deliver,
+    // so a 61-byte rxBuffer is always sufficient
+    if ((size > 0) && (size <= 61) && (size == (rxbytes - 3))) {
       readBurstRegister(CC1101_RXFIFO, rxBuffer, size);
       if (append) {  // next two bytes are status in case appedStatus is set (which it should be)
         uint8_t status[2];
@@ -1229,6 +1241,9 @@ uint8_t SmartCC1101::receiveData(uint8_t *rxBuffer) {
       }
     } else { // mismatch between register values
       size = 0;
+      rssi = 0;
+      lqi = 0;
+      crc = false;
     }
   } else {
     // if buffer is empty after transition for RX to IDLE, most probably CRC_AF was set and the buffer got cleared on a CRC error
